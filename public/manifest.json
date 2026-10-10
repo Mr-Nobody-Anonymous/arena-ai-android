@@ -1,0 +1,70 @@
+{
+  "name": "Arena.ai Android Mobile App",
+  "short_name": "ArenaAI",
+  "description": "Mobile-optimized client, battle runner, and companion for LMSYS Arena.ai",
+  "id": "/arena-ai-mobile-app",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f19",
+  "theme_color": "#4f46e5",
+  "lang": "en-US",
+  "categories": ["utilities", "productivity", "developer"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-192-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Model Battle",
+      "short_name": "Battle",
+      "description": "Compare two anonymous AI models side-by-side",
+      "url": "/#battle",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Leaderboard",
+      "short_name": "Ranking",
+      "description": "View global LMSYS LLM Elo ratings",
+      "url": "/#leaderboard",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Official Web Arena",
+      "short_name": "Arena.ai",
+      "description": "Launch official web arena",
+      "url": "/#gateway",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Network Diagnostics",
+      "short_name": "Ping",
+      "description": "Test live latency to Arena.ai",
+      "url": "/#diagnostics",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

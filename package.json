@@ -1,0 +1,27 @@
+{
+  "name": "arrena-ai-mobile",
+  "version": "1.0.0",
+  "description": "Mobile-optimized Android client and companion gateway for LMSYS Arena.ai",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node tests/runner.js",
+    "analyze": "node tests/analyze-results.js",
+    "generate-icons": "python generate_icons.py"
+  },
+  "keywords": [
+    "arena.ai",
+    "lmsys",
+    "android",
+    "pwa",
+    "llm-battle"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "http-proxy-middleware": "^4.2.0",
+    "qrcode": "^1.5.4"
+  }
+}

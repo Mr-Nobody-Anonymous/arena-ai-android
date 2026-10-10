@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Keystores & sensitive credentials
+*.keystore
+*.jks
+
+# Temporary build artifacts
+.gradle/
+build/
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db

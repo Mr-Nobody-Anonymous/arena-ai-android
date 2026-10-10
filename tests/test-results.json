@@ -1,0 +1,285 @@
+{
+  "timestamp": "2026-10-10T18:00:30.265Z",
+  "totalTests": 28,
+  "passed": 28,
+  "failed": 0,
+  "testCases": [
+    {
+      "id": "TC_01",
+      "category": "Server",
+      "name": "Health Endpoint Responds (200 OK)",
+      "passed": true,
+      "durationMs": 35,
+      "details": {
+        "status": "ok",
+        "timestamp": "2026-10-10T18:00:30.295Z",
+        "uptimeSeconds": 0,
+        "platform": "win32",
+        "nodeVersion": "v24.18.0",
+        "memoryUsageMB": 63
+      }
+    },
+    {
+      "id": "TC_02",
+      "category": "Server",
+      "name": "Uptime & Memory Reporting",
+      "passed": true,
+      "durationMs": 35,
+      "details": {
+        "status": "ok",
+        "timestamp": "2026-10-10T18:00:30.295Z",
+        "uptimeSeconds": 0,
+        "platform": "win32",
+        "nodeVersion": "v24.18.0",
+        "memoryUsageMB": 63
+      }
+    },
+    {
+      "id": "TC_03",
+      "category": "Network",
+      "name": "LAN IP Discovery Active",
+      "passed": true,
+      "durationMs": 27,
+      "details": {
+        "ip": "192.168.1.7",
+        "iface": "Wi-Fi"
+      }
+    },
+    {
+      "id": "TC_04",
+      "category": "Network",
+      "name": "Mobile Access URL Formatted",
+      "passed": true,
+      "durationMs": 27,
+      "details": {
+        "mobileUrl": "http://192.168.1.7:3000"
+      }
+    },
+    {
+      "id": "TC_05",
+      "category": "Network",
+      "name": "QR Code Data URL Generated",
+      "passed": true,
+      "durationMs": 27,
+      "details": null
+    },
+    {
+      "id": "TC_06",
+      "category": "PWA",
+      "name": "Manifest Served with Valid JSON",
+      "passed": true,
+      "durationMs": 6,
+      "details": null
+    },
+    {
+      "id": "TC_07",
+      "category": "PWA",
+      "name": "Android Standalone Display Configured",
+      "passed": true,
+      "durationMs": 6,
+      "details": {
+        "display": "standalone"
+      }
+    },
+    {
+      "id": "TC_08",
+      "category": "PWA",
+      "name": "Android Theme Color & Orientation Defined",
+      "passed": true,
+      "durationMs": 6,
+      "details": {
+        "theme": "#4f46e5",
+        "orient": "portrait"
+      }
+    },
+    {
+      "id": "TC_09",
+      "category": "PWA",
+      "name": "Android App Icons Array (192px & 512px Maskable)",
+      "passed": true,
+      "durationMs": 6,
+      "details": {
+        "iconCount": 4
+      }
+    },
+    {
+      "id": "TC_10",
+      "category": "PWA",
+      "name": "192x192 HD Icon Exists & Serves",
+      "passed": true,
+      "durationMs": 3,
+      "details": null
+    },
+    {
+      "id": "TC_11",
+      "category": "PWA",
+      "name": "512x512 Full HD Icon Exists & Serves",
+      "passed": true,
+      "durationMs": 3,
+      "details": null
+    },
+    {
+      "id": "TC_12",
+      "category": "PWA",
+      "name": "Service Worker sw.js Available",
+      "passed": true,
+      "durationMs": 3,
+      "details": null
+    },
+    {
+      "id": "TC_13",
+      "category": "Pure UI",
+      "name": "Root (/) Serves Authentic arena.ai Directly (200 OK)",
+      "passed": true,
+      "durationMs": 10739,
+      "details": null
+    },
+    {
+      "id": "TC_14",
+      "category": "Pure UI",
+      "name": "Zero Injected Docks or Overlays on Screen",
+      "passed": true,
+      "durationMs": 10739,
+      "details": null
+    },
+    {
+      "id": "TC_15",
+      "category": "Pure UI",
+      "name": "Zero Mock/Simulated Battle Elements",
+      "passed": true,
+      "durationMs": 10739,
+      "details": null
+    },
+    {
+      "id": "TC_16",
+      "category": "Pure UI",
+      "name": "Frame Blocking Headers Stripped for Mobile",
+      "passed": true,
+      "durationMs": 10739,
+      "details": null
+    },
+    {
+      "id": "TC_17",
+      "category": "Pure UI",
+      "name": "Cross-Origin Access Open for Mobile Rendering",
+      "passed": true,
+      "durationMs": 10739,
+      "details": null
+    },
+    {
+      "id": "TC_18",
+      "category": "Privacy",
+      "name": "Proxy Processes Anonymous Stream (200 OK)",
+      "passed": true,
+      "durationMs": 790,
+      "details": null
+    },
+    {
+      "id": "TC_19",
+      "category": "Privacy",
+      "name": "Upstream Connection Shield Active",
+      "passed": true,
+      "durationMs": 790,
+      "details": null
+    },
+    {
+      "id": "TC_20",
+      "category": "Privacy",
+      "name": "No Client IP Disclosed in Response Headers",
+      "passed": true,
+      "durationMs": 790,
+      "details": null
+    },
+    {
+      "id": "TC_21",
+      "category": "Cloud",
+      "name": "arena.ai Live Connectivity",
+      "passed": true,
+      "durationMs": 609,
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "id": "TC_22",
+      "category": "Cloud",
+      "name": "Cloudflare CDN Handshake Verified",
+      "passed": true,
+      "durationMs": 609,
+      "details": {
+        "ray": "a48786b73d388c19-ADD"
+      }
+    },
+    {
+      "id": "TC_23",
+      "category": "Cloud",
+      "name": "Cloud Availability Status (200 OK)",
+      "passed": true,
+      "durationMs": 609,
+      "details": {
+        "status": 200
+      }
+    },
+    {
+      "id": "TC_24",
+      "category": "Android Native",
+      "name": "AndroidManifest.xml Present with Clean Permissions",
+      "passed": true,
+      "durationMs": 1,
+      "details": null
+    },
+    {
+      "id": "TC_25",
+      "category": "Android Native",
+      "name": "MainActivity.java with Geolocation Disabled (IP/Location Shield)",
+      "passed": true,
+      "durationMs": 1,
+      "details": null
+    },
+    {
+      "id": "TC_26",
+      "category": "Android Native",
+      "name": "Local File Access Restricted",
+      "passed": true,
+      "durationMs": 1,
+      "details": null
+    },
+    {
+      "id": "TC_27",
+      "category": "Android Native",
+      "name": "Standard Clean Chrome User-Agent (No Custom Tag Leak)",
+      "passed": true,
+      "durationMs": 1,
+      "details": null
+    },
+    {
+      "id": "TC_28",
+      "category": "Android Native",
+      "name": "Gradle Build Scripts Configured",
+      "passed": true,
+      "durationMs": 1,
+      "details": null
+    }
+  ],
+  "benchmarks": {
+    "targetUrl": "https://arena.ai",
+    "samples": [
+      404,
+      1040,
+      382
+    ],
+    "avgLatencyMs": 609,
+    "minLatencyMs": 382,
+    "maxLatencyMs": 1040,
+    "httpStatus": 200,
+    "cloudflareRay": "a48786b73d388c19-ADD"
+  },
+  "systemInfo": {
+    "status": "ok",
+    "timestamp": "2026-10-10T18:00:30.295Z",
+    "uptimeSeconds": 0,
+    "platform": "win32",
+    "nodeVersion": "v24.18.0",
+    "memoryUsageMB": 63
+  }
+}
