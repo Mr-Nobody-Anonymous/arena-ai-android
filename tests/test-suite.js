@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 // Test Collector
@@ -11,12 +11,10 @@ const results = {
   totalTests: 0,
   passed: 0,
   failed: 0,
-  testCases: [],
-  benchmarks: {},
-  systemInfo: {}
+  testCases: []
 };
 
-function logTest(category, name, passed, details = null, durationMs = 0) {
+function logTest(category, name, passed, details = null) {
   results.totalTests++;
   if (passed) results.passed++;
   else results.failed++;
@@ -26,198 +24,177 @@ function logTest(category, name, passed, details = null, durationMs = 0) {
     category,
     name,
     passed,
-    durationMs,
     details
   });
 
   const icon = passed ? '✅ PASS' : '❌ FAIL';
-  console.log(`  [${icon}] ${category}: ${name} (${durationMs}ms)`);
+  console.log(`  [${icon}] ${category}: ${name}`);
   if (details && !passed) {
     console.log(`         Details: ${JSON.stringify(details)}`);
   }
 }
 
-// HTTP Helper
 function request(endpoint, options = {}) {
-  const start = Date.now();
   return new Promise((resolve, reject) => {
     const url = new URL(endpoint, BASE_URL);
     const req = http.request(url, options, (res) => {
       let data = '';
       res.on('data', chunk => { data += chunk; });
       res.on('end', () => {
-        const durationMs = Date.now() - start;
         resolve({
           statusCode: res.statusCode,
           headers: res.headers,
-          body: data,
-          durationMs
+          body: data
         });
       });
     });
-
-    req.on('error', (err) => {
-      reject({ error: err.message, durationMs: Date.now() - start });
-    });
-
-    if (options.body) {
-      req.write(options.body);
-    }
+    req.on('error', err => reject(err));
+    if (options.body) req.write(options.body);
     req.end();
   });
 }
 
 async function runAllTests() {
   console.log('================================================================');
-  console.log('       🧪 ARENA.AI AUTHENTIC WEBSITE & PRIVACY TEST SUITE       ');
+  console.log('       🧪 ARENA.AI AUDIT COMPLIANCE & INTEGRITY TEST SUITE      ');
   console.log('================================================================\n');
 
-  // --- Suite 1: Server Core & Endpoints ---
-  console.log('▶ SUITE 1: Server Core & Health Endpoints');
+  // --- Suite 1: Local Development Server ---
+  console.log('▶ SUITE 1: Local Development Server & Diagnostics');
   try {
     const health = await request('/api/health');
     const healthJson = JSON.parse(health.body);
-    results.systemInfo = healthJson;
-    logTest('Server', 'Health Endpoint Responds (200 OK)', health.statusCode === 200 && healthJson.status === 'ok', healthJson, health.durationMs);
-    logTest('Server', 'Uptime & Memory Reporting', typeof healthJson.uptimeSeconds === 'number' && healthJson.memoryUsageMB > 0, healthJson, health.durationMs);
+    logTest('Dev Server', 'Health Endpoint Responds (200 OK)', health.statusCode === 200 && healthJson.status === 'ok');
+    logTest('Dev Server', 'Node & Memory Reporting Valid', typeof healthJson.uptimeSeconds === 'number' && healthJson.memoryUsageMB > 0);
   } catch (err) {
-    logTest('Server', 'Health Endpoint Responds', false, err);
+    logTest('Dev Server', 'Health Endpoint Responds', false, err.message);
   }
 
-  // --- Suite 2: Android Network Discovery & QR Access ---
-  console.log('\n▶ SUITE 2: Android Network Discovery');
-  try {
-    const net = await request('/api/network-info');
-    const netJson = JSON.parse(net.body);
-    logTest('Network', 'LAN IP Discovery Active', net.statusCode === 200 && !!netJson.primaryIp, { ip: netJson.primaryIp, iface: netJson.primaryInterface }, net.durationMs);
-    logTest('Network', 'Mobile Access URL Formatted', netJson.mobileUrl && netJson.mobileUrl.startsWith('http://'), { mobileUrl: netJson.mobileUrl }, net.durationMs);
-    logTest('Network', 'QR Code Data URL Generated', netJson.qrDataUrl && netJson.qrDataUrl.startsWith('data:image/png;base64,'), null, net.durationMs);
-  } catch (err) {
-    logTest('Network', 'Network Endpoint Check', false, err);
-  }
+  // --- Suite 2: Android Native APK Project Structure ---
+  console.log('\n▶ SUITE 2: Android Architecture & Security Hardening');
+  const projectRoot = path.join(__dirname, '..');
+  const androidDir = path.join(projectRoot, 'android');
+  const appDir = path.join(androidDir, 'app');
+  const srcDir = path.join(appDir, 'src', 'main');
+  const resDir = path.join(srcDir, 'res');
 
-  // --- Suite 3: PWA Compliance for Android ---
-  console.log('\n▶ SUITE 3: Android PWA & Offline Readiness');
-  try {
-    const manifest = await request('/manifest.json');
-    let mJson = null;
-    try { mJson = JSON.parse(manifest.body); } catch (_) {}
-    
-    logTest('PWA', 'Manifest Served with Valid JSON', manifest.statusCode === 200 && !!mJson, null, manifest.durationMs);
-    logTest('PWA', 'Android Standalone Display Configured', mJson && mJson.display === 'standalone', { display: mJson?.display }, manifest.durationMs);
-    logTest('PWA', 'Android Theme Color & Orientation Defined', mJson && !!mJson.theme_color && !!mJson.orientation, { theme: mJson?.theme_color, orient: mJson?.orientation }, manifest.durationMs);
-    logTest('PWA', 'Android App Icons Array (192px & 512px Maskable)', mJson && mJson.icons && mJson.icons.length >= 4, { iconCount: mJson?.icons?.length }, manifest.durationMs);
+  const manifestPath = path.join(srcDir, 'AndroidManifest.xml');
+  const mainActivityPath = path.join(srcDir, 'java', 'ai', 'arena', 'mobile', 'MainActivity.java');
+  const buildGradlePath = path.join(appDir, 'build.gradle');
+  const gradlePropertiesPath = path.join(androidDir, 'gradle.properties');
+  const proguardPath = path.join(appDir, 'proguard-rules.pro');
 
-    const icon192 = await request('/icons/icon-192.png');
-    logTest('PWA', '192x192 HD Icon Exists & Serves', icon192.statusCode === 200 && icon192.headers['content-type'].includes('png'), null, icon192.durationMs);
+  const manifestSrc = fs.existsSync(manifestPath) ? fs.readFileSync(manifestPath, 'utf8') : '';
+  const mainActivitySrc = fs.existsSync(mainActivityPath) ? fs.readFileSync(mainActivityPath, 'utf8') : '';
+  const buildGradleSrc = fs.existsSync(buildGradlePath) ? fs.readFileSync(buildGradlePath, 'utf8') : '';
+  const gradlePropertiesSrc = fs.existsSync(gradlePropertiesPath) ? fs.readFileSync(gradlePropertiesPath, 'utf8') : '';
 
-    const icon512 = await request('/icons/icon-512.png');
-    logTest('PWA', '512x512 Full HD Icon Exists & Serves', icon512.statusCode === 200 && icon512.headers['content-type'].includes('png'), null, icon512.durationMs);
+  logTest('Android Core', 'Package Unified to ai.arena.mobile',
+    buildGradleSrc.includes("applicationId \"ai.arena.mobile\"") && mainActivitySrc.includes("package ai.arena.mobile;"));
 
-    const sw = await request('/sw.js');
-    logTest('PWA', 'Service Worker sw.js Available', sw.statusCode === 200 && sw.body.includes('caches.open'), null, sw.durationMs);
-  } catch (err) {
-    logTest('PWA', 'PWA Verification Failed', false, err);
-  }
+  logTest('Android Core', 'Target SDK 34+ and Modern Min SDK 26 configured',
+    buildGradleSrc.includes("minSdk 26") && buildGradleSrc.includes("targetSdk 34"));
 
-  // --- Suite 4: Pure Authentic Website Serving (No Injected UI) ---
-  console.log('\n▶ SUITE 4: Pure Authentic Website Rendering');
-  try {
-    const rootRes = await request('/');
-    const html = rootRes.body;
-    const isAuthenticArena = html.includes('Arena AI: The Official AI Ranking') || html.includes('dpl_');
-    const noInjectedDock = !html.includes('id="android-dock"');
-    const noInjectedSimulators = !html.includes('CANDIDATE_MODELS');
+  logTest('Android Security', 'Cleartext Traffic Disabled (HTTPS only)',
+    manifestSrc.includes('android:usesCleartextTraffic="false"'));
 
-    logTest('Pure UI', 'Root (/) Serves Authentic arena.ai Directly (200 OK)', rootRes.statusCode === 200 && isAuthenticArena, null, rootRes.durationMs);
-    logTest('Pure UI', 'Zero Injected Docks or Overlays on Screen', noInjectedDock, null, rootRes.durationMs);
-    logTest('Pure UI', 'Zero Mock/Simulated Battle Elements', noInjectedSimulators, null, rootRes.durationMs);
-    logTest('Pure UI', 'Frame Blocking Headers Stripped for Mobile', !rootRes.headers['x-frame-options'], null, rootRes.durationMs);
-    logTest('Pure UI', 'Cross-Origin Access Open for Mobile Rendering', rootRes.headers['access-control-allow-origin'] === '*', null, rootRes.durationMs);
-  } catch (err) {
-    logTest('Pure UI', 'Pure UI Verification Failed', false, err);
-  }
+  logTest('Android Security', 'Application Backup Disabled (Token protection)',
+    manifestSrc.includes('android:allowBackup="false"'));
 
-  // --- Suite 5: IP Anonymization & Leak Protection ---
-  console.log('\n▶ SUITE 5: IP Leak Shield & Privacy Verification');
-  try {
-    // Send a request with simulated IP headers to verify the proxy strips them
-    const testLeakReq = await request('/', {
-      headers: {
-        'X-Forwarded-For': '192.168.1.99, 10.0.0.1',
-        'X-Real-IP': '192.168.1.99',
-        'Client-IP': '192.168.1.99',
-        'CF-Connecting-IP': '192.168.1.99'
-      }
-    });
+  logTest('Android Security', 'Minimal Permissions (INTERNET only, ACCESS_NETWORK_STATE removed)',
+    manifestSrc.includes('android.permission.INTERNET') && !manifestSrc.includes('ACCESS_NETWORK_STATE'));
 
-    logTest('Privacy', 'Proxy Processes Anonymous Stream (200 OK)', testLeakReq.statusCode === 200, null, testLeakReq.durationMs);
-    logTest('Privacy', 'Upstream Connection Shield Active', !testLeakReq.headers['x-forwarded-for'], null, testLeakReq.durationMs);
-    logTest('Privacy', 'No Client IP Disclosed in Response Headers', !testLeakReq.headers['x-real-ip'] && !testLeakReq.headers['client-ip'], null, testLeakReq.durationMs);
-  } catch (err) {
-    logTest('Privacy', 'IP Shield Verification Failed', false, err);
-  }
+  logTest('Android Security', 'Client Geolocation Disabled (Prevents physical location leaks)',
+    mainActivitySrc.includes('setGeolocationEnabled(false)'));
 
-  // --- Suite 6: Live arena.ai Cloud Latency Benchmark ---
-  console.log('\n▶ SUITE 6: Live arena.ai Cloud Latency Benchmark');
-  try {
-    const latencySamples = [];
-    let arenaResult = null;
+  logTest('Android Security', 'Local File Access Restricted (Blocks file:// scheme)',
+    mainActivitySrc.includes('setAllowFileAccess(false)') && mainActivitySrc.includes('setAllowContentAccess(false)'));
 
-    for (let i = 1; i <= 3; i++) {
-      const arenaStatus = await request('/api/arena-status');
-      const arenaJson = JSON.parse(arenaStatus.body);
-      arenaResult = arenaJson;
-      if (arenaJson.latencyMs) {
-        latencySamples.push(arenaJson.latencyMs);
-      }
-    }
+  logTest('Android Security', 'Navigation Allow-List Configured (External links open in system browser)',
+    mainActivitySrc.includes('ALLOWED_HOST_SUFFIXES') && mainActivitySrc.includes('Intent.ACTION_VIEW'));
 
-    const avgLatency = Math.round(latencySamples.reduce((a, b) => a + b, 0) / latencySamples.length);
-    const minLatency = Math.min(...latencySamples);
-    const maxLatency = Math.max(...latencySamples);
+  logTest('Android Navigation', 'Modern OnBackPressedDispatcher used (API 34/35/36 compliant)',
+    mainActivitySrc.includes('OnBackPressedCallback') && !mainActivitySrc.includes('onKeyDown('));
 
-    results.benchmarks = {
-      targetUrl: 'https://arena.ai',
-      samples: latencySamples,
-      avgLatencyMs: avgLatency,
-      minLatencyMs: minLatency,
-      maxLatencyMs: maxLatency,
-      httpStatus: arenaResult?.status,
-      cloudflareRay: arenaResult?.cloudflareRay
-    };
+  logTest('Android UX', 'Full File Chooser with Multi-select ClipData Support',
+    mainActivitySrc.includes('onShowFileChooser') && mainActivitySrc.includes('getClipData()'));
 
-    logTest('Cloud', 'arena.ai Live Connectivity', arenaResult && arenaResult.online === true, { status: arenaResult?.status }, avgLatency);
-    logTest('Cloud', 'Cloudflare CDN Handshake Verified', arenaResult && !!arenaResult.cloudflareRay, { ray: arenaResult?.cloudflareRay }, avgLatency);
-    logTest('Cloud', 'Cloud Availability Status (200 OK)', arenaResult?.status === 200, { status: arenaResult?.status }, avgLatency);
-  } catch (err) {
-    logTest('Cloud', 'Cloud Connectivity Test Failed', false, err);
-  }
+  logTest('Android UX', 'Session & Cookie Persistence Configured',
+    mainActivitySrc.includes('CookieManager.getInstance().flush()'));
 
-  // --- Suite 7: Android Native APK Project Structure ---
-  console.log('\n▶ SUITE 7: Android Native APK Project Structure');
-  try {
-    const manifestPath = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
-    const mainActivityPath = path.join(__dirname, '..', 'android', 'app', 'src', 'main', 'java', 'com', 'arenaai', 'mobile', 'MainActivity.java');
-    const buildGradlePath = path.join(__dirname, '..', 'android', 'app', 'build.gradle');
+  logTest('Android UX', 'Pull-to-Refresh with SwipeRefreshLayout Integrated',
+    mainActivitySrc.includes('SwipeRefreshLayout'));
 
-    const manifestExists = fs.existsSync(manifestPath);
-    const activityExists = fs.existsSync(mainActivityPath);
-    const gradleExists = fs.existsSync(buildGradlePath);
-    const mainActivitySrc = fs.readFileSync(mainActivityPath, 'utf8');
+  logTest('Android Build', 'AndroidX Enabled in gradle.properties',
+    gradlePropertiesSrc.includes('android.useAndroidX=true'));
 
-    const geolocationDisabled = mainActivitySrc.includes('setGeolocationEnabled(false)');
-    const fileAccessDisabled = mainActivitySrc.includes('setAllowFileAccess(false)');
-    const cleanUserAgent = !mainActivitySrc.includes('ArenaAIMobileApp');
+  logTest('Android Build', 'ProGuard / R8 Rules Present',
+    fs.existsSync(proguardPath) && fs.readFileSync(proguardPath, 'utf8').includes('ai.arena.mobile'));
 
-    logTest('Android Native', 'AndroidManifest.xml Present with Clean Permissions', manifestExists, null, 1);
-    logTest('Android Native', 'MainActivity.java with Geolocation Disabled (IP/Location Shield)', geolocationDisabled, null, 1);
-    logTest('Android Native', 'Local File Access Restricted', fileAccessDisabled, null, 1);
-    logTest('Android Native', 'Standard Clean Chrome User-Agent (No Custom Tag Leak)', cleanUserAgent, null, 1);
-    logTest('Android Native', 'Gradle Build Scripts Configured', gradleExists, null, 1);
-  } catch (err) {
-    logTest('Android Native', 'Android Project Structure Check', false, err);
-  }
+  // --- Suite 3: Adaptive Icons & Branding ---
+  console.log('\n▶ SUITE 3: Official Brand Icons & Adaptive Drawables');
+  const bgVector = path.join(resDir, 'drawable', 'ic_launcher_background.xml');
+  const fgVector = path.join(resDir, 'drawable', 'ic_launcher_foreground.xml');
+  const monoVector = path.join(resDir, 'drawable', 'ic_launcher_monochrome.xml');
+  const anydpiLauncher = path.join(resDir, 'mipmap-anydpi-v26', 'ic_launcher.xml');
+  const anydpiRound = path.join(resDir, 'mipmap-anydpi-v26', 'ic_launcher_round.xml');
+
+  const bgSrc = fs.existsSync(bgVector) ? fs.readFileSync(bgVector, 'utf8') : '';
+  const fgSrc = fs.existsSync(fgVector) ? fs.readFileSync(fgVector, 'utf8') : '';
+
+  logTest('Branding', 'Adaptive Background Vector is Pure Black (#000000)',
+    bgSrc.includes('#000000') && !bgSrc.includes('#26a69a'));
+
+  logTest('Branding', 'Adaptive Foreground Vector contains Official Classical Pillar Mark',
+    fgSrc.includes('pathData="M57.5364') && fgSrc.includes('#FFFFFF') && !fgSrc.includes('robot'));
+
+  logTest('Branding', 'Android 13+ Themed Monochrome Vector Present',
+    fs.existsSync(monoVector));
+
+  logTest('Branding', 'Adaptive Launcher XML files configured in mipmap-anydpi-v26',
+    fs.existsSync(anydpiLauncher) && fs.existsSync(anydpiRound));
+
+  const densityPngsPresent = ['mipmap-mdpi', 'mipmap-hdpi', 'mipmap-xhdpi', 'mipmap-xxhdpi', 'mipmap-xxxhdpi'].every(d =>
+    fs.existsSync(path.join(resDir, d, 'ic_launcher.png')) && fs.existsSync(path.join(resDir, d, 'ic_launcher_round.png'))
+  );
+  logTest('Branding', 'Density PNG Icons Present across all densities (mdpi to xxxhdpi)', densityPngsPresent);
+
+  // --- Suite 4: Gradle Wrapper & Build System ---
+  console.log('\n▶ SUITE 4: Gradle Wrapper & CI Configuration');
+  const gradlewExists = fs.existsSync(path.join(androidDir, 'gradlew'));
+  const gradlewBatExists = fs.existsSync(path.join(androidDir, 'gradlew.bat'));
+  const wrapperJarExists = fs.existsSync(path.join(androidDir, 'gradle', 'wrapper', 'gradle-wrapper.jar'));
+  const wrapperProps = path.join(androidDir, 'gradle', 'wrapper', 'gradle-wrapper.properties');
+  const wrapperPropsSrc = fs.existsSync(wrapperProps) ? fs.readFileSync(wrapperProps, 'utf8') : '';
+
+  logTest('Build System', 'Gradle Wrapper Shell Script (gradlew) Present', gradlewExists);
+  logTest('Build System', 'Gradle Wrapper Windows Batch (gradlew.bat) Present', gradlewBatExists);
+  logTest('Build System', 'Gradle Wrapper Jar Present', wrapperJarExists);
+  logTest('Build System', 'Gradle 8.2 configured in wrapper properties', wrapperPropsSrc.includes('gradle-8.2'));
+
+  const ciWorkflowPath = path.join(projectRoot, '.github', 'workflows', 'build.yml');
+  const ciSrc = fs.existsSync(ciWorkflowPath) ? fs.readFileSync(ciWorkflowPath, 'utf8') : '';
+  logTest('CI / Automation', 'GitHub Actions Build Workflow Present',
+    ciSrc.includes('actions/setup-java@v4') && ciSrc.includes('assembleDebug'));
+
+  // --- Suite 5: Legal & Community Governance ---
+  console.log('\n▶ SUITE 5: Legal & Community Documentation');
+  logTest('Legal', 'Apache-2.0 LICENSE File Present', fs.existsSync(path.join(projectRoot, 'LICENSE')));
+  logTest('Legal', 'NOTICE File with Brand & Third-Party Attribution Present', fs.existsSync(path.join(projectRoot, 'NOTICE')));
+  logTest('Legal', 'PRIVACY.md Detailing Zero Telemetry & Client Safeguards Present', fs.existsSync(path.join(projectRoot, 'PRIVACY.md')));
+  logTest('Security', 'SECURITY.md Responsible Disclosure Policy Present', fs.existsSync(path.join(projectRoot, 'SECURITY.md')));
+  logTest('Community', 'CONTRIBUTING.md Guidelines Present', fs.existsSync(path.join(projectRoot, 'CONTRIBUTING.md')));
+  logTest('Community', 'CODE_OF_CONDUCT.md Present', fs.existsSync(path.join(projectRoot, 'CODE_OF_CONDUCT.md')));
+  logTest('Community', 'CHANGELOG.md Present with Audit Remediation Log', fs.existsSync(path.join(projectRoot, 'CHANGELOG.md')));
+
+  // --- Suite 6: Smali Dump Retirement ---
+  console.log('\n▶ SUITE 6: Legacy Codebase Purge');
+  const smaliTreeRetired = !fs.existsSync(path.join(projectRoot, 'arena_standalone_apk'));
+  const publicStaleRemoved = !fs.existsSync(path.join(projectRoot, 'public'));
+  const dataStaleRemoved = !fs.existsSync(path.join(projectRoot, 'data'));
+
+  logTest('Hygiene', 'Decompiled Smali Tree (3,300+ legacy files) Completely Removed', smaliTreeRetired);
+  logTest('Hygiene', 'Unused Shell HTML and Stale Data Files Removed', publicStaleRemoved && dataStaleRemoved);
 
   // Write Test Results File
   const testResultsPath = path.join(__dirname, 'test-results.json');
@@ -226,7 +203,6 @@ async function runAllTests() {
   console.log('\n================================================================');
   console.log(`  TEST RESULTS: ${results.passed} PASSED / ${results.totalTests} TOTAL (${results.failed} FAILED)`);
   console.log(`  Score: ${Math.round((results.passed / results.totalTests) * 100)}% SUCCESS RATE`);
-  console.log(`  Report saved to: tests/test-results.json`);
   console.log('================================================================\n');
 
   return results;

@@ -1,25 +1,35 @@
 {
-  "name": "arrena-ai-mobile",
-  "version": "1.0.0",
-  "description": "Mobile-optimized Android client and companion gateway for LMSYS Arena.ai",
+  "name": "arena-ai-android",
+  "version": "1.0.1",
+  "description": "Unofficial standalone Android client and development companion gateway for Arena (arena.ai)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/runner.js",
-    "analyze": "node tests/analyze-results.js",
-    "generate-icons": "python generate_icons.py"
+    "generate-icons": "python process_official_icon.py"
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mr-Nobody-Anonymous/arena-ai-android.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Mr-Nobody-Anonymous/arena-ai-android/issues"
+  },
+  "homepage": "https://github.com/Mr-Nobody-Anonymous/arena-ai-android#readme",
   "keywords": [
-    "arena.ai",
-    "lmsys",
+    "arena-ai",
     "android",
-    "pwa",
-    "llm-battle"
+    "webview",
+    "llm-benchmark",
+    "chatbot-arena",
+    "ai"
   ],
-  "author": "",
-  "license": "ISC",
+  "author": "Community Contributors",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
-    "cors": "^2.8.5",
     "express": "^4.21.2",
     "http-proxy-middleware": "^4.2.0",
     "qrcode": "^1.5.4"

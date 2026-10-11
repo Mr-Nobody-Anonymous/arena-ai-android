@@ -1,285 +1,253 @@
 {
-  "timestamp": "2026-10-10T18:00:30.265Z",
-  "totalTests": 28,
-  "passed": 28,
+  "timestamp": "2026-10-11T15:23:41.180Z",
+  "totalTests": 35,
+  "passed": 35,
   "failed": 0,
   "testCases": [
     {
       "id": "TC_01",
-      "category": "Server",
+      "category": "Dev Server",
       "name": "Health Endpoint Responds (200 OK)",
       "passed": true,
-      "durationMs": 35,
-      "details": {
-        "status": "ok",
-        "timestamp": "2026-10-10T18:00:30.295Z",
-        "uptimeSeconds": 0,
-        "platform": "win32",
-        "nodeVersion": "v24.18.0",
-        "memoryUsageMB": 63
-      }
+      "details": null
     },
     {
       "id": "TC_02",
-      "category": "Server",
-      "name": "Uptime & Memory Reporting",
+      "category": "Dev Server",
+      "name": "Node & Memory Reporting Valid",
       "passed": true,
-      "durationMs": 35,
-      "details": {
-        "status": "ok",
-        "timestamp": "2026-10-10T18:00:30.295Z",
-        "uptimeSeconds": 0,
-        "platform": "win32",
-        "nodeVersion": "v24.18.0",
-        "memoryUsageMB": 63
-      }
+      "details": null
     },
     {
       "id": "TC_03",
-      "category": "Network",
-      "name": "LAN IP Discovery Active",
+      "category": "Android Core",
+      "name": "Package Unified to ai.arena.mobile",
       "passed": true,
-      "durationMs": 27,
-      "details": {
-        "ip": "192.168.1.7",
-        "iface": "Wi-Fi"
-      }
+      "details": null
     },
     {
       "id": "TC_04",
-      "category": "Network",
-      "name": "Mobile Access URL Formatted",
+      "category": "Android Core",
+      "name": "Target SDK 34+ and Modern Min SDK 26 configured",
       "passed": true,
-      "durationMs": 27,
-      "details": {
-        "mobileUrl": "http://192.168.1.7:3000"
-      }
+      "details": null
     },
     {
       "id": "TC_05",
-      "category": "Network",
-      "name": "QR Code Data URL Generated",
+      "category": "Android Security",
+      "name": "Cleartext Traffic Disabled (HTTPS only)",
       "passed": true,
-      "durationMs": 27,
       "details": null
     },
     {
       "id": "TC_06",
-      "category": "PWA",
-      "name": "Manifest Served with Valid JSON",
+      "category": "Android Security",
+      "name": "Application Backup Disabled (Token protection)",
       "passed": true,
-      "durationMs": 6,
       "details": null
     },
     {
       "id": "TC_07",
-      "category": "PWA",
-      "name": "Android Standalone Display Configured",
+      "category": "Android Security",
+      "name": "Minimal Permissions (INTERNET only, ACCESS_NETWORK_STATE removed)",
       "passed": true,
-      "durationMs": 6,
-      "details": {
-        "display": "standalone"
-      }
+      "details": null
     },
     {
       "id": "TC_08",
-      "category": "PWA",
-      "name": "Android Theme Color & Orientation Defined",
+      "category": "Android Security",
+      "name": "Client Geolocation Disabled (Prevents physical location leaks)",
       "passed": true,
-      "durationMs": 6,
-      "details": {
-        "theme": "#4f46e5",
-        "orient": "portrait"
-      }
+      "details": null
     },
     {
       "id": "TC_09",
-      "category": "PWA",
-      "name": "Android App Icons Array (192px & 512px Maskable)",
+      "category": "Android Security",
+      "name": "Local File Access Restricted (Blocks file:// scheme)",
       "passed": true,
-      "durationMs": 6,
-      "details": {
-        "iconCount": 4
-      }
+      "details": null
     },
     {
       "id": "TC_10",
-      "category": "PWA",
-      "name": "192x192 HD Icon Exists & Serves",
+      "category": "Android Security",
+      "name": "Navigation Allow-List Configured (External links open in system browser)",
       "passed": true,
-      "durationMs": 3,
       "details": null
     },
     {
       "id": "TC_11",
-      "category": "PWA",
-      "name": "512x512 Full HD Icon Exists & Serves",
+      "category": "Android Navigation",
+      "name": "Modern OnBackPressedDispatcher used (API 34/35/36 compliant)",
       "passed": true,
-      "durationMs": 3,
       "details": null
     },
     {
       "id": "TC_12",
-      "category": "PWA",
-      "name": "Service Worker sw.js Available",
+      "category": "Android UX",
+      "name": "Full File Chooser with Multi-select ClipData Support",
       "passed": true,
-      "durationMs": 3,
       "details": null
     },
     {
       "id": "TC_13",
-      "category": "Pure UI",
-      "name": "Root (/) Serves Authentic arena.ai Directly (200 OK)",
+      "category": "Android UX",
+      "name": "Session & Cookie Persistence Configured",
       "passed": true,
-      "durationMs": 10739,
       "details": null
     },
     {
       "id": "TC_14",
-      "category": "Pure UI",
-      "name": "Zero Injected Docks or Overlays on Screen",
+      "category": "Android UX",
+      "name": "Pull-to-Refresh with SwipeRefreshLayout Integrated",
       "passed": true,
-      "durationMs": 10739,
       "details": null
     },
     {
       "id": "TC_15",
-      "category": "Pure UI",
-      "name": "Zero Mock/Simulated Battle Elements",
+      "category": "Android Build",
+      "name": "AndroidX Enabled in gradle.properties",
       "passed": true,
-      "durationMs": 10739,
       "details": null
     },
     {
       "id": "TC_16",
-      "category": "Pure UI",
-      "name": "Frame Blocking Headers Stripped for Mobile",
+      "category": "Android Build",
+      "name": "ProGuard / R8 Rules Present",
       "passed": true,
-      "durationMs": 10739,
       "details": null
     },
     {
       "id": "TC_17",
-      "category": "Pure UI",
-      "name": "Cross-Origin Access Open for Mobile Rendering",
+      "category": "Branding",
+      "name": "Adaptive Background Vector is Pure Black (#000000)",
       "passed": true,
-      "durationMs": 10739,
       "details": null
     },
     {
       "id": "TC_18",
-      "category": "Privacy",
-      "name": "Proxy Processes Anonymous Stream (200 OK)",
+      "category": "Branding",
+      "name": "Adaptive Foreground Vector contains Official Classical Pillar Mark",
       "passed": true,
-      "durationMs": 790,
       "details": null
     },
     {
       "id": "TC_19",
-      "category": "Privacy",
-      "name": "Upstream Connection Shield Active",
+      "category": "Branding",
+      "name": "Android 13+ Themed Monochrome Vector Present",
       "passed": true,
-      "durationMs": 790,
       "details": null
     },
     {
       "id": "TC_20",
-      "category": "Privacy",
-      "name": "No Client IP Disclosed in Response Headers",
+      "category": "Branding",
+      "name": "Adaptive Launcher XML files configured in mipmap-anydpi-v26",
       "passed": true,
-      "durationMs": 790,
       "details": null
     },
     {
       "id": "TC_21",
-      "category": "Cloud",
-      "name": "arena.ai Live Connectivity",
+      "category": "Branding",
+      "name": "Density PNG Icons Present across all densities (mdpi to xxxhdpi)",
       "passed": true,
-      "durationMs": 609,
-      "details": {
-        "status": 200
-      }
+      "details": null
     },
     {
       "id": "TC_22",
-      "category": "Cloud",
-      "name": "Cloudflare CDN Handshake Verified",
+      "category": "Build System",
+      "name": "Gradle Wrapper Shell Script (gradlew) Present",
       "passed": true,
-      "durationMs": 609,
-      "details": {
-        "ray": "a48786b73d388c19-ADD"
-      }
+      "details": null
     },
     {
       "id": "TC_23",
-      "category": "Cloud",
-      "name": "Cloud Availability Status (200 OK)",
+      "category": "Build System",
+      "name": "Gradle Wrapper Windows Batch (gradlew.bat) Present",
       "passed": true,
-      "durationMs": 609,
-      "details": {
-        "status": 200
-      }
+      "details": null
     },
     {
       "id": "TC_24",
-      "category": "Android Native",
-      "name": "AndroidManifest.xml Present with Clean Permissions",
+      "category": "Build System",
+      "name": "Gradle Wrapper Jar Present",
       "passed": true,
-      "durationMs": 1,
       "details": null
     },
     {
       "id": "TC_25",
-      "category": "Android Native",
-      "name": "MainActivity.java with Geolocation Disabled (IP/Location Shield)",
+      "category": "Build System",
+      "name": "Gradle 8.2 configured in wrapper properties",
       "passed": true,
-      "durationMs": 1,
       "details": null
     },
     {
       "id": "TC_26",
-      "category": "Android Native",
-      "name": "Local File Access Restricted",
+      "category": "CI / Automation",
+      "name": "GitHub Actions Build Workflow Present",
       "passed": true,
-      "durationMs": 1,
       "details": null
     },
     {
       "id": "TC_27",
-      "category": "Android Native",
-      "name": "Standard Clean Chrome User-Agent (No Custom Tag Leak)",
+      "category": "Legal",
+      "name": "Apache-2.0 LICENSE File Present",
       "passed": true,
-      "durationMs": 1,
       "details": null
     },
     {
       "id": "TC_28",
-      "category": "Android Native",
-      "name": "Gradle Build Scripts Configured",
+      "category": "Legal",
+      "name": "NOTICE File with Brand & Third-Party Attribution Present",
       "passed": true,
-      "durationMs": 1,
+      "details": null
+    },
+    {
+      "id": "TC_29",
+      "category": "Legal",
+      "name": "PRIVACY.md Detailing Zero Telemetry & Client Safeguards Present",
+      "passed": true,
+      "details": null
+    },
+    {
+      "id": "TC_30",
+      "category": "Security",
+      "name": "SECURITY.md Responsible Disclosure Policy Present",
+      "passed": true,
+      "details": null
+    },
+    {
+      "id": "TC_31",
+      "category": "Community",
+      "name": "CONTRIBUTING.md Guidelines Present",
+      "passed": true,
+      "details": null
+    },
+    {
+      "id": "TC_32",
+      "category": "Community",
+      "name": "CODE_OF_CONDUCT.md Present",
+      "passed": true,
+      "details": null
+    },
+    {
+      "id": "TC_33",
+      "category": "Community",
+      "name": "CHANGELOG.md Present with Audit Remediation Log",
+      "passed": true,
+      "details": null
+    },
+    {
+      "id": "TC_34",
+      "category": "Hygiene",
+      "name": "Decompiled Smali Tree (3,300+ legacy files) Completely Removed",
+      "passed": true,
+      "details": null
+    },
+    {
+      "id": "TC_35",
+      "category": "Hygiene",
+      "name": "Unused Shell HTML and Stale Data Files Removed",
+      "passed": true,
       "details": null
     }
-  ],
-  "benchmarks": {
-    "targetUrl": "https://arena.ai",
-    "samples": [
-      404,
-      1040,
-      382
-    ],
-    "avgLatencyMs": 609,
-    "minLatencyMs": 382,
-    "maxLatencyMs": 1040,
-    "httpStatus": 200,
-    "cloudflareRay": "a48786b73d388c19-ADD"
-  },
-  "systemInfo": {
-    "status": "ok",
-    "timestamp": "2026-10-10T18:00:30.295Z",
-    "uptimeSeconds": 0,
-    "platform": "win32",
-    "nodeVersion": "v24.18.0",
-    "memoryUsageMB": 63
-  }
+  ]
 }
