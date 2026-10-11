@@ -10,7 +10,7 @@ This release addresses all findings identified during the comprehensive technica
 
 | File | Size | SHA-256 Checksum |
 | :--- | :--- | :--- |
-| **[ArenaAI.apk](ArenaAI.apk)** | 2,005,618 bytes | `d63bc69f536ea46343cab1de0a41d17e488fb3b30940aa0832c0597404d96f1d` |
+| **[ArenaAI.apk](ArenaAI.apk)** | 2,820,867 bytes | `d2cdf96da50bad8145b3fd935b1f99ecbdda7807ab5981aa1fa3e003dc941f1e` |
 | **[SHA256SUMS](SHA256SUMS)** | 82 bytes | Integrity checksum manifest |
 
 ---
@@ -25,7 +25,7 @@ The release APK is signed with the community release key:
   `7B:7C:33:2A:78:9C:48:F2:97:95:46:08:11:F6:B7:31:B6:F2:B0:62:29:9C:AD:71:A5:CB:E4:59:EC:E8:2F:49`
 - **SHA-1 Certificate Fingerprint:**  
   `A1:B9:F5:28:82:4A:63:0F:AA:2B:77:B5:F7:AF:2A:BB:BF:D7:01:1D`
-- **Zip Alignment:** 100% verified 4-byte alignment across all 296 stored entries (including `resources.arsc`).
+- **Zip Alignment & Signature Schemes:** 100% verified 4-byte alignment across all 241 stored entries (including `resources.arsc`), with full APK Signature Scheme v1, v2, and v3 (Android 11–15 compatible).
 
 Verify in terminal:
 ```bash

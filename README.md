@@ -80,12 +80,12 @@ Always verify the cryptographic integrity of downloaded APK releases before inst
 | Attribute | Value |
 | :--- | :--- |
 | **File Name** | `ArenaAI.apk` |
-| **File Size** | `2,005,618 bytes` |
-| **SHA-256 Checksum** | `d63bc69f536ea46343cab1de0a41d17e488fb3b30940aa0832c0597404d96f1d` |
+| **File Size** | `2,820,867 bytes` |
+| **SHA-256 Checksum** | `d2cdf96da50bad8145b3fd935b1f99ecbdda7807ab5981aa1fa3e003dc941f1e` |
 | **Package Name** | `ai.arena.mobile` |
 | **Version** | `1.0.1 (versionCode 2)` |
-| **Zip Alignment** | Verified 4-byte aligned (all 296 stored entries, `resources.arsc`) |
-| **Signature Scheme** | JAR signature (v1) with SHA-256 digest |
+| **Zip Alignment** | Verified 4-byte aligned (all 241 stored entries, `resources.arsc`) |
+| **Signature Scheme** | Full APK Signature Scheme v1, v2 & v3 (Android 11–15 compatible) |
 
 ### Signing Certificate Fingerprints
 ```text
