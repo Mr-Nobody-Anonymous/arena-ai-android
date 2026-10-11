@@ -18,11 +18,22 @@
   "homepage": "https://github.com/Mr-Nobody-Anonymous/arena-ai-android#readme",
   "keywords": [
     "arena-ai",
+    "arena",
     "android",
+    "android-app",
+    "mobile-app",
+    "apk",
     "webview",
+    "llm",
     "llm-benchmark",
+    "chatbot",
     "chatbot-arena",
-    "ai"
+    "lmsys",
+    "lmsys-arena",
+    "ai",
+    "generative-ai",
+    "artificial-intelligence",
+    "standalone"
   ],
   "author": "Community Contributors",
   "license": "Apache-2.0",
