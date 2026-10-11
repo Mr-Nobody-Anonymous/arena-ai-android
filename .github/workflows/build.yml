@@ -31,16 +31,18 @@ jobs:
         working-directory: android
         run: ./gradlew test --stacktrace
 
-      - name: Build Debug APK
+      - name: Build Release and Debug APKs
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleRelease assembleDebug --stacktrace
 
       - name: Compute Checksums
         run: |
           mkdir -p artifacts
+          cp android/app/build/outputs/apk/release/app-release.apk artifacts/ArenaAI.apk
           cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/ArenaAI-debug.apk
           cd artifacts
-          sha256sum ArenaAI-debug.apk > SHA256SUMS
+          sha256sum ArenaAI.apk > SHA256SUMS
+          sha256sum ArenaAI-debug.apk >> SHA256SUMS
           cat SHA256SUMS
 
       - name: Upload Build Artifacts
