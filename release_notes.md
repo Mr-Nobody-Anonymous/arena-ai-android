@@ -10,7 +10,7 @@ This release addresses all findings identified during the comprehensive technica
 
 | File | Size | SHA-256 Checksum |
 | :--- | :--- | :--- |
-| **[ArenaAI.apk](ArenaAI.apk)** | 1,992,506 bytes | `668191ce70f6ec43353ab1144ba346a6db7eb4d5fa1b18617d94fc2db1b56d3c` |
+| **[ArenaAI.apk](ArenaAI.apk)** | 2,005,618 bytes | `d63bc69f536ea46343cab1de0a41d17e488fb3b30940aa0832c0597404d96f1d` |
 | **[SHA256SUMS](SHA256SUMS)** | 82 bytes | Integrity checksum manifest |
 
 ---
@@ -39,7 +39,8 @@ sha256sum -c SHA256SUMS
 ### 🏛️ Authentic Adaptive Branding
 - Replaced Android Studio template robot vector with the official **Classical Ionic Pillar** mark in `@drawable/ic_launcher_foreground.xml` and monochrome layer (`@drawable/ic_launcher_monochrome.xml`).
 - Applied solid `#000000` AMOLED black background to `@drawable/ic_launcher_background.xml`.
-- Generated matching density icons for `mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, and `xxxhdpi`.
+- Generated matching 32-bit RGBA density icons for `mdpi`, `hdpi`, `xhdpi`, `xxhdpi`, and `xxxhdpi` with proper squircle and circular masks.
+- Configured adaptive icon XMLs with `-v26` qualifier and registered launcher icon attributes on both `<application>` and `<activity>` tags to ensure the authentic logo renders across all Android launchers upon installation.
 
 ### 🛡️ Navigation Security & Client-Side Privacy
 - **Navigation Allow-List:** Embedded WebView is restricted to `arena.ai`, `lmarena.ai`, and authentication identity providers. Any external URL is safely handed off to the system web browser via `Intent.ACTION_VIEW`.
@@ -49,6 +50,7 @@ sha256sum -c SHA256SUMS
   - Standard clean Android Chrome User-Agent.
 
 ### 📱 Android Platform & UX Enhancements
+- **5-Second Internet Auto-Reconnect:** When network connectivity is absent or lost, the app replaces raw browser error screens with an AMOLED reconnecting view (with live countdown and "Retry Now" button) and automatically probes network status every 5 seconds to instantly restore and reload Arena as soon as Wi-Fi or cellular data is turned on.
 - **Predictive Back Navigation:** Migrated to AndroidX `OnBackPressedCallback`, preventing navigation breakage on Android 14+ / 16 (API 34–36).
 - **Multi-File Chooser:** Upgraded `WebChromeClient.onShowFileChooser` to support `ClipData` multi-select for Vision battle uploads.
 - **Session Persistence:** Explicit `CookieManager.flush()` calls on page finish, pause, and destroy lifecycle events.

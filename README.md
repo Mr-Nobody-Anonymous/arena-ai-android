@@ -24,7 +24,7 @@ An open-source, mobile-optimized Android client for **[Arena (arena.ai)](https:/
   - **Navigation Security Allow-List:** Embedded WebView navigation is strictly confined to Arena (`arena.ai`, `lmarena.ai`) and trusted authentication identity providers. All outside URLs automatically open in your device's external web browser.
 - **📁 File Upload Bridge:** Full HTML5 file chooser integration supporting multi-file uploads (`ClipData`) for vision battle images and file inputs.
 - **⬅️ Predictive & Modern Back Navigation:** Built with AndroidX `OnBackPressedCallback`, providing smooth in-app back navigation compatible with Android 14+ and Android 15/16 (API 34–36).
-- **🔄 Pull-to-Refresh:** Integrated `SwipeRefreshLayout` with AMOLED dark-mode styling.
+- **🔄 Pull-to-Refresh & 5-Second Network Auto-Reconnect:** Automatically detects offline or interrupted connectivity, displays an AMOLED black reconnecting screen with live countdown and "Retry Now" action, and continuously checks connectivity every 5 seconds in background to restore Arena.ai instantly once Wi-Fi or cellular network is enabled.
 - **🔒 Hardened Security Profile:** Enforces `android:usesCleartextTraffic="false"` (HTTPS only), `android:allowBackup="false"` (prevents adb credential extraction), and requests only the minimal `INTERNET` permission.
 
 ---
@@ -66,8 +66,8 @@ Always verify the cryptographic integrity of downloaded APK releases before inst
 | Attribute | Value |
 | :--- | :--- |
 | **File Name** | `ArenaAI.apk` |
-| **File Size** | `1,992,506 bytes` |
-| **SHA-256 Checksum** | `668191ce70f6ec43353ab1144ba346a6db7eb4d5fa1b18617d94fc2db1b56d3c` |
+| **File Size** | `2,005,618 bytes` |
+| **SHA-256 Checksum** | `d63bc69f536ea46343cab1de0a41d17e488fb3b30940aa0832c0597404d96f1d` |
 | **Package Name** | `ai.arena.mobile` |
 | **Version** | `1.0.1 (versionCode 2)` |
 | **Zip Alignment** | Verified 4-byte aligned (all 296 stored entries, `resources.arsc`) |
