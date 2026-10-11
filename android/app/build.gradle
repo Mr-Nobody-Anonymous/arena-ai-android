@@ -54,10 +54,10 @@ configurations.configureEach {
 
 dependencies {
     constraints {
-        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22") {
+        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:2.4.21") {
             because("kotlin-stdlib-jdk7 is now merged into kotlin-stdlib")
         }
-        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22") {
+        implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.4.21") {
             because("kotlin-stdlib-jdk8 is now merged into kotlin-stdlib")
         }
     }
