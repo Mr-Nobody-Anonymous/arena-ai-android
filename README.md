@@ -1,9 +1,23 @@
-# Arena.ai Android Client (Unofficial)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="official_apple_touch_icon_dark.png">
+    <source media="(prefers-color-scheme: light)" srcset="official_apple_touch_icon.png">
+    <img alt="Arena.ai Official Logo" src="official_apple_touch_icon_dark.png" width="128" height="128">
+  </picture>
+</p>
 
-[![Android Build & CI](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/actions/workflows/build.yml/badge.svg)](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/actions/workflows/build.yml)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg)](https://developer.android.com)
-[![Package](https://img.shields.io/badge/Package-ai.arena.mobile-purple.svg)](android/)
+<h1 align="center">Arena.ai Android Client (Unofficial)</h1>
+
+<p align="center">
+  <strong>An open-source, mobile-optimized Android client for <a href="https://arena.ai">Arena (arena.ai)</a></strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/actions/workflows/build.yml"><img src="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/actions/workflows/build.yml/badge.svg" alt="Android Build & CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+  <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg" alt="Platform"></a>
+  <a href="android/"><img src="https://img.shields.io/badge/Package-ai.arena.mobile-purple.svg" alt="Package"></a>
+</p>
 
 An open-source, mobile-optimized Android client for **[Arena (arena.ai)](https://arena.ai)** (formerly LMSYS Chatbot Arena). This application provides a full-screen, native Android interface for pairwise LLM benchmarking, real-time blind voting, model leaderboards, and image battles.
 
