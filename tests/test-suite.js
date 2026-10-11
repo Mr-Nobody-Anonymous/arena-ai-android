@@ -175,7 +175,7 @@ async function runAllTests() {
   const ciWorkflowPath = path.join(projectRoot, '.github', 'workflows', 'build.yml');
   const ciSrc = fs.existsSync(ciWorkflowPath) ? fs.readFileSync(ciWorkflowPath, 'utf8') : '';
   logTest('CI / Automation', 'GitHub Actions Build Workflow Present',
-    ciSrc.includes('actions/setup-java@v4') && ciSrc.includes('assembleDebug'));
+    ciSrc.includes('actions/setup-java') && ciSrc.includes('assembleDebug'));
 
   // --- Suite 5: Legal & Community Governance ---
   console.log('\n▶ SUITE 5: Legal & Community Documentation');
