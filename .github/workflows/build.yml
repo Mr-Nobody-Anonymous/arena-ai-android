@@ -27,6 +27,11 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x android/gradlew
 
+      - name: Generate Community Release Keystore
+        working-directory: android/app
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias arenaai -keyalg RSA -keysize 2048 -validity 10000 -storepass arena1234 -keypass arena1234 -dname "CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US"
+
       - name: Run Unit Tests
         working-directory: android
         run: ./gradlew test --stacktrace

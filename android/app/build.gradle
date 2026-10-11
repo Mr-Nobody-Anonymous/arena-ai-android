@@ -18,10 +18,14 @@ android {
 
     signingConfigs {
         release {
-            storeFile file("release.keystore")
-            storePassword "arena1234"
-            keyAlias "arenaai"
-            keyPassword "arena1234"
+            if (file("release.keystore").exists()) {
+                storeFile file("release.keystore")
+                storePassword "arena1234"
+                keyAlias "arenaai"
+                keyPassword "arena1234"
+            } else {
+                initWith(signingConfigs.debug)
+            }
             v1SigningEnabled true
             v2SigningEnabled true
         }
