@@ -21,19 +21,35 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all communit
 4. **Make your changes**:
    - Ensure changes in `android/` follow Android best practices.
    - Run unit tests and verify the Gradle build compiles cleanly.
+   - Run the automated compliance test suite (`npm test`) from the root directory.
 5. **Commit your changes**:
    - Use clear, conventional commit messages (e.g., `feat: ...`, `fix: ...`, `docs: ...`).
 6. **Push to your branch and submit a Pull Request**:
    - Provide a clear description of the problem solved and the testing performed.
 
-## Building from Source
+## Building & Testing from Source
 
 ### Prerequisites
 - JDK 17 or higher
 - Android SDK (API 34/35 platform and build-tools)
+- Node.js 18+ (for running the compliance test suite)
 - Gradle 8.2+ (or use the included Gradle wrapper)
 
-### Build Commands
+### Running Tests
+
+From the repository root:
+```bash
+# Run 35-point compliance and architecture test suite
+npm test
+```
+
+From the `android/` directory:
+```bash
+# Run Android Java unit tests
+./gradlew test
+```
+
+### Compiling APKs
 Navigate to the `android/` directory:
 ```bash
 cd android
@@ -41,11 +57,8 @@ cd android
 # Build debug APK
 ./gradlew assembleDebug
 
-# Build release APK
+# Build signed release APK
 ./gradlew assembleRelease
-
-# Run unit tests
-./gradlew test
 ```
 
 APK outputs are placed in `android/app/build/outputs/apk/`.

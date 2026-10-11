@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective Date:** October 10, 2026  
+**Effective Date:** October 11, 2026  
 **Application:** Arena.ai Unofficial Android Client (`ai.arena.mobile`)
 
 This privacy policy explains how data is handled by the Arena.ai mobile client application.
@@ -16,11 +16,12 @@ The Arena.ai Android application itself **does not collect, log, track, or trans
 
 ---
 
-## 2. Direct Network Communication
+## 2. Direct Network Communication & Connectivity Monitoring
 
 The application functions as a dedicated, standalone browser interface connecting directly over encrypted HTTPS to **[https://arena.ai](https://arena.ai)**.
 - All network requests, API queries, model battle prompts, votes, and chat interactions travel directly between your Android device and Arena's official infrastructure.
 - As with any standard web browser visiting `https://arena.ai`, Arena and its content delivery network (Cloudflare) will see your device's public IP address, TLS handshake, and standard browser headers.
+- **Offline Reconnection Probing:** When the device loses internet connectivity, the application's auto-reconnect engine periodically issues minimal HTTP HEAD requests directly to `https://arena.ai` on a background thread solely to test connectivity before restoring the page. No tracking parameters, identifiers, or personal tokens are included in these health checks.
 
 ---
 

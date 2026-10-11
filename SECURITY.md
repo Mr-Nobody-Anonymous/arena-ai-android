@@ -23,8 +23,9 @@ If you discover a security vulnerability in this project, please report it respo
 
 ## Security Architecture & Best Practices
 
-- **Minimal Permissions:** The app requests only `android.permission.INTERNET`.
-- **Backup Disabled:** `android:allowBackup="false"` is enforced to protect private authentication tokens and cookies from unauthenticated device extraction.
+- **Minimal Permissions:** The app requests solely `android.permission.INTERNET`. No location, camera, audio, or storage permissions are declared.
+- **Backup Disabled:** `android:allowBackup="false"` is enforced to protect private authentication tokens and cookies from unauthenticated device extraction via `adb backup`.
 - **Cleartext Traffic Disabled:** `android:usesCleartextTraffic="false"` blocks all non-HTTPS network requests at the OS level.
-- **Local File Scheme Restrictions:** `setAllowFileAccess(false)`, `setAllowContentAccess(false)`, `setAllowFileAccessFromFileURLs(false)`, and `setAllowUniversalAccessFromFileURLs(false)` are active.
-- **Origin Isolation:** Embedded WebViews are strictly restricted via navigation allow-listing to approved Arena domains and trusted OAuth endpoints.
+- **Local File Scheme Restrictions:** `setAllowFileAccess(false)`, `setAllowContentAccess(false)`, `setAllowFileAccessFromFileURLs(false)`, and `setAllowUniversalAccessFromFileURLs(false)` prevent web content from probing the device file system.
+- **Origin Isolation & Navigation Allow-List:** Embedded WebViews are strictly restricted via navigation allow-listing to approved Arena domains (`arena.ai`, `lmarena.ai`) and trusted OAuth endpoints. Outside links open in the system browser via `Intent.ACTION_VIEW`.
+- **Cryptographic Signing & Integrity:** Release APKs are signed with APK Signature Schemes v1, v2, and v3 and verified with 4-byte zip alignment (`zipalign`) to prevent tampering and guarantee authentic package provenance.
