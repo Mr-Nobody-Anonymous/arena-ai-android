@@ -32,9 +32,20 @@ jobs:
         run: |
           keytool -genkey -v -keystore release.keystore -alias arenaai -keyalg RSA -keysize 2048 -validity 10000 -storepass arena1234 -keypass arena1234 -dname "CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US"
 
-      - name: Run Unit Tests
+      - name: Run Android Unit Tests
         working-directory: android
         run: ./gradlew test --stacktrace
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Node Dependencies
+        run: npm ci || npm install
+
+      - name: Run Architecture & Security Audit Tests
+        run: npm test
 
       - name: Build Release and Debug APKs
         working-directory: android

@@ -125,6 +125,11 @@ async function runAllTests() {
   logTest('Android UX', 'Pull-to-Refresh with SwipeRefreshLayout Integrated',
     mainActivitySrc.includes('SwipeRefreshLayout'));
 
+  const updateManagerPath = path.join(srcDir, 'java', 'ai', 'arena', 'mobile', 'AppUpdateManager.java');
+  const updateManagerSrc = fs.existsSync(updateManagerPath) ? fs.readFileSync(updateManagerPath, 'utf8') : '';
+  logTest('Android UX', 'In-App GitHub Self-Updater & Version Checker Integrated',
+    fs.existsSync(updateManagerPath) && updateManagerSrc.includes('checkForUpdates') && updateManagerSrc.includes('isNewerVersion') && mainActivitySrc.includes('AppUpdateManager.checkForUpdates'));
+
   logTest('Android Build', 'AndroidX Enabled in gradle.properties',
     gradlePropertiesSrc.includes('android.useAndroidX=true'));
 

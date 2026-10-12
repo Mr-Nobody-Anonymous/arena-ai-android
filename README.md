@@ -18,7 +18,7 @@
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg" alt="Platform"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Package-ai.arena.mobile-purple.svg" alt="Package"></a>
   <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/tag/v1.0.2"><img src="https://img.shields.io/badge/Release-v1.0.2_(Verified)-orange.svg" alt="Release"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-35%2F35_Passing-success.svg" alt="Audit Tests"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-36%2F36_Passing-success.svg" alt="Audit Tests"></a>
 </p>
 
 An open-source, high-performance native Android application for **[Arena (arena.ai)](https://arena.ai)** (formerly LMSYS Chatbot Arena). This application provides a full-screen, mobile-optimized experience for crowdsourced LLM evaluation, blind pairwise model battles, multimodal vision benchmarks, live Elo leaderboards, and direct model chat.
@@ -274,7 +274,7 @@ cd arena-ai-android/android
 ```
 
 ### Automated Compliance Test Suite
-The repository includes an automated 35-point integrity and compliance test suite:
+The repository includes an automated 36-point integrity and compliance test suite:
 ```bash
 npm test
 ```
@@ -310,7 +310,7 @@ arena-ai-android/
 │   ├── gradle/wrapper/         # Gradle 8.2 wrapper binaries and configuration
 │   ├── gradle.properties       # AndroidX configuration (android.useAndroidX=true)
 │   └── gradlew, gradlew.bat    # Cross-platform Gradle wrapper execution scripts
-├── tests/                      # Automated compliance test suite (35/35 passing)
+├── tests/                      # Automated compliance test suite (36/36 passing)
 ├── server.js                   # Optional local reverse proxy (development inspection only)
 ├── ArenaAI.apk                 # Verified, signed release APK binary
 ├── SHA256SUMS                  # Cryptographic checksum manifest

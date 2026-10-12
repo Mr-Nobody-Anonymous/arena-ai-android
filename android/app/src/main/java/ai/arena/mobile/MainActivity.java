@@ -106,14 +106,19 @@ public class MainActivity extends AppCompatActivity {
     private ActivityResultLauncher<Intent> fileChooserLauncher;
 
     // Allowed domains for in-app WebView rendering (Arena site and OAuth providers)
-    private static final List<String> ALLOWED_HOST_SUFFIXES = Arrays.asList(
+    public static final List<String> ALLOWED_HOST_SUFFIXES = Arrays.asList(
             "arena.ai",
             "lmarena.ai",
+            "lmsys.org",
+            "huggingface.co",
             "accounts.google.com",
             "google.com",
             "github.com",
             "appleid.apple.com",
-            "auth0.com"
+            "auth0.com",
+            "login.microsoftonline.com",
+            "live.com",
+            "discord.com"
     );
 
     @Override
@@ -412,13 +417,14 @@ public class MainActivity extends AppCompatActivity {
         webView.setDownloadListener(new DownloadListener() {
             @Override
             public void onDownloadStart(String url, String userAgent, String contentDisposition, String mimeType, long contentLength) {
+                if (url == null || url.trim().isEmpty()) return;
                 try {
                     Intent downloadIntent = new Intent(Intent.ACTION_VIEW);
                     downloadIntent.setData(Uri.parse(url));
                     startActivity(downloadIntent);
                 } catch (ActivityNotFoundException e) {
                     Toast.makeText(MainActivity.this, "No app available to handle download", Toast.LENGTH_SHORT).show();
-                }
+                } catch (Exception ignored) {}
             }
         });
     }
@@ -507,7 +513,7 @@ public class MainActivity extends AppCompatActivity {
         retryHandler.removeCallbacks(retryRunnable);
     }
 
-    private boolean isHostAllowed(@Nullable String host) {
+    public static boolean isHostAllowed(@Nullable String host) {
         if (host == null) return false;
         String lowerHost = host.toLowerCase();
         for (String allowed : ALLOWED_HOST_SUFFIXES) {

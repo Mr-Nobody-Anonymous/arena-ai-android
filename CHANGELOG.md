@@ -29,9 +29,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added support for `ClipData` multi-selection, allowing multiple benchmark images to be uploaded simultaneously for Vision battles.
   - Guaranteed safe cancellation callbacks so the WebView file picker never hangs.
 
-- **Automated Testing:**
+- **Automated Testing & CI Integration:**
   - Added `AppUpdateManagerTest.java` unit test suite covering semantic version comparisons, tag prefixes, and edge cases.
-  - Maintained 100% pass rate across all 35 audit compliance test suites.
+  - Refactored `NavigationPolicyTest.java` to test production `MainActivity.isHostAllowed(...)` directly.
+  - Added Node.js test runner step (`npm test`) directly into GitHub Actions CI workflow (`.github/workflows/build.yml`).
+  - Expanded automated audit test suite to 36 out of 36 passing checks (100% pass rate).
+
+- **Ecosystem Navigation & OAuth Enhancements:**
+  - Expanded `ALLOWED_HOST_SUFFIXES` in `MainActivity.java` with `huggingface.co`, `lmsys.org`, `login.microsoftonline.com`, `live.com`, and `discord.com` to prevent OAuth session fragmentation.
+  - Hardened `DownloadListener` against null or empty download URIs.
+
+- **Dependabot Governance & Branch Hygiene:**
+  - Configured update grouping in `.github/dependabot.yml` (`github-actions`, `gradle-dependencies`, `npm-dependencies`).
+  - Added ignore rules for incompatible major bumps (`AGP > 8.x`, `gradle-wrapper > 8.x`, `swiperefreshlayout >= 1.2.0`, and merged `kotlin-stdlib-jdk7/8`).
+  - Resolved and merged dependency pull requests #11 and #13, declined incompatible PR #12, and pruned remote tracking branches.
 
 ---
 

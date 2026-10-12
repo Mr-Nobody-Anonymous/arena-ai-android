@@ -4,13 +4,34 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
 
   - package-ecosystem: "gradle"
     directory: "/android"
     schedule:
       interval: "weekly"
+    ignore:
+      - dependency-name: "com.android.application"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "gradle-wrapper"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "androidx.swiperefreshlayout:swiperefreshlayout"
+        versions: [">= 1.2.0"]
+      - dependency-name: "org.jetbrains.kotlin:kotlin-stdlib-jdk7"
+      - dependency-name: "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    groups:
+      gradle-dependencies:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
+    groups:
+      npm-dependencies:
+        patterns:
+          - "*"
