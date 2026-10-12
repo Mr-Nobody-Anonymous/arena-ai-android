@@ -6,6 +6,15 @@ This release resolves the scroll-up reload issue, enhances multi-file and image 
 
 ---
 
+## 📲 Verified Release Downloads
+
+| File | Size | SHA-256 Checksum |
+| :--- | :--- | :--- |
+| **[ArenaAI.apk](ArenaAI.apk)** | 2,826,043 bytes | `730c8aa159dcc9d568491c24d821dfb894df9a5447d70c644351c693b1291fd6` |
+| **[SHA256SUMS](SHA256SUMS)** | 79 bytes | Integrity checksum manifest |
+
+---
+
 ## 🌟 What's New & Fixed in v1.0.2
 
 ### 📱 Smooth In-App Scrolling & Gestures (Scroll-Up Reload Bug Fixed)

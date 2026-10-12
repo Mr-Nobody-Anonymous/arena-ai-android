@@ -232,6 +232,8 @@ The application delivers a first-class, authentic home screen presence matching 
 | Attribute | Specification |
 | :--- | :--- |
 | **File Name** | `ArenaAI.apk` |
+| **File Size** | `2,826,043 bytes` (~2.83 MB) |
+| **SHA-256 Checksum** | `730c8aa159dcc9d568491c24d821dfb894df9a5447d70c644351c693b1291fd6` |
 | **Package ID** | `ai.arena.mobile` |
 | **Version** | `1.0.2 (versionCode 3)` |
 | **Min SDK** | `API 26 (Android 8.0 Oreo)` |
