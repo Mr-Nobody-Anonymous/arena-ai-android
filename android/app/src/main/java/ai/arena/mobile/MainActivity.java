@@ -296,7 +296,7 @@ public class MainActivity extends AppCompatActivity {
                 if (url != null && url.startsWith("https://") && !url.contains("data:")) {
                     onPageSuccess();
                     // Background check for GitHub release updates without blocking UI
-                    AppUpdateManager.checkForUpdates(MainActivity.this, BuildConfig.VERSION_NAME);
+                    AppUpdateManager.checkForUpdates(MainActivity.this, getCurrentVersionName());
                 }
                 // Flush cookies to persistent storage on every page transition
                 CookieManager.getInstance().flush();
@@ -516,6 +516,14 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         return false;
+    }
+
+    private String getCurrentVersionName() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (Exception ignored) {
+            return "1.0.2";
+        }
     }
 
     @Override
