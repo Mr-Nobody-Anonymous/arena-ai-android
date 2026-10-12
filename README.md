@@ -17,7 +17,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg" alt="Platform"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Package-ai.arena.mobile-purple.svg" alt="Package"></a>
-  <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/tag/v1.0.2"><img src="https://img.shields.io/badge/Release-v1.0.2_(Verified)-orange.svg" alt="Release"></a>
+  <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/tag/v1.0.3"><img src="https://img.shields.io/badge/Release-v1.0.3_(Verified)-orange.svg" alt="Release"></a>
   <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-36%2F36_Passing-success.svg" alt="Audit Tests"></a>
 </p>
 
@@ -232,10 +232,10 @@ The application delivers a first-class, authentic home screen presence matching 
 | Attribute | Specification |
 | :--- | :--- |
 | **File Name** | `ArenaAI.apk` |
-| **File Size** | `2,826,043 bytes` (~2.83 MB) |
-| **SHA-256 Checksum** | `730c8aa159dcc9d568491c24d821dfb894df9a5447d70c644351c693b1291fd6` |
+| **File Size** | `2,825,952 bytes` (~2.83 MB) |
+| **SHA-256 Checksum** | `6aef57e72714dbd8763cacb0aa2d75d929118f13d38dd619cd6426cd82b15db8` |
 | **Package ID** | `ai.arena.mobile` |
-| **Version** | `1.0.2 (versionCode 3)` |
+| **Version** | `1.0.3 (versionCode 4)` |
 | **Min SDK** | `API 26 (Android 8.0 Oreo)` |
 | **Target SDK** | `API 34 (Android 14)` |
 | **Zip Alignment** | Verified 4-byte aligned (all stored archive entries) |

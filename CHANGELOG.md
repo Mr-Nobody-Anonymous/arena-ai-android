@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.3] - 2026-10-12
+
+### Added & Enhanced
+
+- **Expanded Ecosystem Authentication & Navigation Allow-List:**
+  - Added Hugging Face (`huggingface.co`), LMSYS Org (`lmsys.org`, `chat.lmsys.org`), Microsoft (`login.microsoftonline.com`, `live.com`), and Discord (`discord.com`) to in-app allow-list in `MainActivity.java`.
+  - Enables smooth SSO login flows and leaderboard navigation without kicking users to external browsers.
+- **Automated CI Architecture & Security Test Execution:**
+  - Integrated 36-point automated audit compliance suite directly into GitHub Actions CI (`.github/workflows/build.yml`).
+- **Dependabot Governance:**
+  - Added update groups (`github-actions`, `gradle-dependencies`, `npm-dependencies`) and ignore rules in `.github/dependabot.yml`.
+- **Live Upgrade Target:**
+  - Published v1.0.3 to GitHub Releases, serving as a live verification update for the in-app self-updater.
+
+---
+
 ## [1.0.2] - 2026-10-12
 
 ### Fixed & Enhanced

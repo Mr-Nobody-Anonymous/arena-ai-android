@@ -61,7 +61,7 @@ In **v1.0.2**, the application resolves the scroll-up accidental reload issue by
 
 | Artifact | Size | SHA-256 Checksum | Package ID | Version | Signature Schemes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `ArenaAI.apk` | 2,826,043 bytes | `730c8aa159dcc9d568491c24d821dfb894df9a5447d70c644351c693b1291fd6` | `ai.arena.mobile` | `1.0.2 (versionCode 3)` | v1 (JAR) + v2 (APK Signature Block) + v3 (Android 9+) |
+| `ArenaAI.apk` | 2,825,952 bytes | `6aef57e72714dbd8763cacb0aa2d75d929118f13d38dd619cd6426cd82b15db8` | `ai.arena.mobile` | `1.0.3 (versionCode 4)` | v1 (JAR) + v2 (APK Signature Block) + v3 (Android 9+) |
 
 ### Signing Certificate Fingerprints
 - **Owner / Signer:** `CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US`
