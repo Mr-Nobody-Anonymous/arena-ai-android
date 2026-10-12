@@ -5,8 +5,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
 import android.provider.Settings;
 import android.widget.Toast;
 
@@ -36,7 +34,6 @@ public class AppUpdateManager {
             "https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest";
 
     private static final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
-    private static final Handler mainHandler = new Handler(Looper.getMainLooper());
     private static File pendingApkInstall = null;
 
     /**
@@ -106,7 +103,7 @@ public class AppUpdateManager {
                 final String finalTagName = tagName;
                 final long finalSize = apkSize;
 
-                mainHandler.post(() -> {
+                activity.runOnUiThread(() -> {
                     if (activity.isFinishing() || (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1 && activity.isDestroyed())) {
                         return;
                     }
@@ -187,7 +184,7 @@ public class AppUpdateManager {
             final boolean isSuccess = success;
             final File finalFile = downloadedFile;
 
-            mainHandler.post(() -> {
+            activity.runOnUiThread(() -> {
                 if (progressDialog.isShowing()) {
                     progressDialog.dismiss();
                 }
