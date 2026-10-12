@@ -3,8 +3,8 @@
 **Audited Repository:** `Mr-Nobody-Anonymous/arena-ai-android`  
 **Target Platform:** Android (API 26+ / Android 8.0 Oreo through Android 15+)  
 **Application ID:** `ai.arena.mobile`  
-**Verification Date:** October 11, 2026  
-**Status:** ✅ **100% AUDIT COMPLIANT & PRODUCTION READY**
+**Verification Date:** October 12, 2026  
+**Status:** ✅ **100% AUDIT COMPLIANT & PRODUCTION READY (v1.0.2)**
 
 ---
 
@@ -12,7 +12,7 @@
 
 Following a comprehensive technical and security audit of the `arena-ai-android` codebase (which identified critical package divergences, misleading branding claims, an adaptive icon rendering defect, APK signature scheme gaps causing Android 11–15 install failures, and missing build infrastructure), the entire application has been re-architected, hardened, and verified.
 
-The legacy decompiled smali tree (`org.h4cker.omar.omarsapplication`, 3,300+ files) has been completely retired. The standalone Android client in `android/` (`ai.arena.mobile`) is now the single source of truth, connecting directly over HTTPS to **[https://arena.ai](https://arena.ai)** with no intermediary desktop proxy required.
+In **v1.0.2**, the application resolves the scroll-up accidental reload issue by disabling `SwipeRefreshLayout` touch drag interception, enhances multi-file and image uploading with robust MIME type parsing and `ClipData` multi-selection, and introduces an automated in-app self-updater (`AppUpdateManager`) that checks GitHub releases in the background and prompts users to update via native dialogs and `FileProvider`.
 
 ---
 
@@ -29,13 +29,14 @@ The legacy decompiled smali tree (`org.h4cker.omar.omarsapplication`, 3,300+ fil
 | **A7. Google Sign-in Claims** | Warning | Misleading claim that UA spoofing guaranteed OAuth. | Honestly documented Google's WebView OAuth policy, supported email/password & session persistence, and handled secondary windows via `onCreateWindow`. | ✅ Verified |
 | **A8. Open URL Navigation** | High | Every URL opened inside full-screen WebView with no address bar. | Enforced strict navigation allow-list (`arena.ai`, `lmarena.ai`, OAuth providers). Outside links open in system browser via `Intent.ACTION_VIEW`. | ✅ Verified |
 | **C1. Android 11–15 APK Signatures** | Critical | APK failed installation on Android 11–15 with "Package appears to be invalid" due to missing v2/v3 signatures. | Configured Gradle release pipeline with `v1SigningEnabled true` and `v2SigningEnabled true` using Android SDK `apksigner`. | ✅ Verified |
-| **C2. Zip Alignment** | High | APK entries were misaligned (resources.arsc at offset%4 = 1). | Enforced 4-byte zip alignment across all 241 stored entries. Verified 0 misaligned entries. | ✅ Verified |
+| **C2. Zip Alignment** | High | APK entries were misaligned (resources.arsc at offset%4 = 1). | Enforced 4-byte zip alignment across all stored entries. Verified 0 misaligned entries. | ✅ Verified |
 | **C3. Back Navigation** | Medium | Used deprecated `onKeyDown`/`onBackPressed` which break on Android 14+ / 16 (API 34-36). | Implemented AndroidX `OnBackPressedCallback` via `getOnBackPressedDispatcher()`. | ✅ Verified |
 | **D1. Network Resilience** | Medium | Raw Chromium error screens shown when offline or toggling networks. | Implemented 5-second auto-reconnect engine with AMOLED countdown view and non-blocking background connection probing. | ✅ Verified |
-| **D2. File Uploads** | Medium | Single file only, ignored multi-select. | Enhanced `onShowFileChooser` with `ClipData` multi-select and MIME type parsing for Vision battles. | ✅ Verified |
-| **D3. Pull-to-Refresh** | Low | Unused SwipeRefreshLayout. | Integrated `SwipeRefreshLayout` with dark theme styling. | ✅ Verified |
+| **D2. File & Image Uploads** | Medium | Single file only, ignored multi-select, comma-separated MIME types caused picker failures. | Enhanced `onShowFileChooser` with `ClipData` multi-select, MIME type parsing, and extension mapping for Vision battles. | ✅ Verified |
+| **D3. Scroll-Up Reload Defect** | High | Swiping down to scroll up through chat history triggered pull-to-refresh reload, wiping active battles and prompts. | Disabled `SwipeRefreshLayout` touch drag interception (`setEnabled(false)` and `onChildScrollUpCallback -> true`) so all gestures pass smoothly to WebView. | ✅ Verified |
 | **E. Security Hardening** | High | `usesCleartextTraffic="true"` and `allowBackup="true"`. | Set `usesCleartextTraffic="false"` and `allowBackup="false"`. Removed `ACCESS_NETWORK_STATE`. | ✅ Verified |
 | **F. CI / Automation** | Medium | No CI workflow in `.github/workflows`. | Added `.github/workflows/build.yml` with automated test and build pipeline. | ✅ Verified |
+| **G. In-App Self-Updater** | Feature | Manual updates required re-downloading APK from browser every release. | Added background `AppUpdateManager` checking GitHub releases, prompting via native dialog, and launching package installer via `FileProvider`. | ✅ Verified |
 
 ---
 
@@ -51,14 +52,16 @@ The legacy decompiled smali tree (`org.h4cker.omar.omarsapplication`, 3,300+ fil
    Web navigation is strictly gated to `arena.ai`, `lmarena.ai`, and authentication providers (`accounts.google.com`, `github.com`, `appleid.apple.com`, `auth0.com`). Any external link opens in the user's default browser.
 5. **Session Persistence:**  
    Session cookies are preserved in Android's private app data sandbox and explicitly flushed to disk during activity lifecycle events (`onPageFinished`, `onPause`, `onStop`, `onDestroy`).
+6. **Self-Update Security:**  
+   Updates are verified against official GitHub release assets and installed using Android's system PackageInstaller via `FileProvider` with `REQUEST_INSTALL_PACKAGES` permission.
 
 ---
 
 ## 4. Cryptographic Release Integrity
 
-| Artifact | Size | SHA-256 Checksum | Signature Schemes |
+| Artifact | Package ID | Version | Signature Schemes |
 | :--- | :--- | :--- | :--- |
-| `ArenaAI.apk` | 2,820,867 bytes | `d2cdf96da50bad8145b3fd935b1f99ecbdda7807ab5981aa1fa3e003dc941f1e` | v1 (JAR) + v2 (APK Signature Block) + v3 (Android 9+) |
+| `ArenaAI.apk` | `ai.arena.mobile` | `1.0.2 (versionCode 3)` | v1 (JAR) + v2 (APK Signature Block) + v3 (Android 9+) |
 
 ### Signing Certificate Fingerprints
 - **Owner / Signer:** `CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US`
@@ -79,3 +82,4 @@ The legacy decompiled smali tree (`org.h4cker.omar.omarsapplication`, 3,300+ fil
   - Suite 4: Gradle Wrapper & CI Configuration (5/5 passing)
   - Suite 5: Legal & Community Governance (7/7 passing)
   - Suite 6: Legacy Codebase Purge (2/2 passing)
+- **Unit Tests:** `NavigationPolicyTest` and `AppUpdateManagerTest` passing.

@@ -13,16 +13,11 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
 import android.os.Message;
 import android.view.ViewGroup;
-import android.view.Window;
 import android.webkit.CookieManager;
 import android.webkit.DownloadListener;
+import android.webkit.MimeTypeMap;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
@@ -40,15 +35,21 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Arena.ai Unofficial Mobile Client
  * 
  * Standalone Android client providing full access to Arena (arena.ai)
  * with robust session persistence, modern back navigation, navigation allow-list,
- * file upload support, and strict client-side privacy safeguards.
+ * file upload support, smooth in-app scroll gestures, in-app self-updater,
+ * and strict client-side privacy safeguards.
  */
 public class MainActivity extends AppCompatActivity {
 
@@ -98,7 +99,6 @@ public class MainActivity extends AppCompatActivity {
             });
         }
     };
-
 
     private SwipeRefreshLayout swipeRefreshLayout;
     private WebView webView;
@@ -151,6 +151,10 @@ public class MainActivity extends AppCompatActivity {
                             }
                         } else if (data.getData() != null) {
                             results = new Uri[]{data.getData()};
+                        } else if (data.getDataString() != null) {
+                            try {
+                                results = new Uri[]{Uri.parse(data.getDataString())};
+                            } catch (Exception ignored) {}
                         }
                     }
                     filePathCallback.onReceiveValue(results);
@@ -165,6 +169,10 @@ public class MainActivity extends AppCompatActivity {
         swipeRefreshLayout = new SwipeRefreshLayout(this);
         swipeRefreshLayout.setColorSchemeColors(Color.WHITE);
         swipeRefreshLayout.setProgressBackgroundColorSchemeColor(Color.BLACK);
+
+        // Disable pull-to-refresh swipe gestures so vertical scrolling in chat/battle views is never hijacked
+        swipeRefreshLayout.setEnabled(false);
+        swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) -> true);
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.BLACK);
@@ -227,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(webView, true);
 
-        // 6. Pull-To-Refresh Handling
+        // 6. Pull-To-Refresh Listener (configured for programmatic triggers)
         swipeRefreshLayout.setOnRefreshListener(() -> {
             isOfflineState = false;
             retryHandler.removeCallbacks(retryRunnable);
@@ -287,6 +295,8 @@ public class MainActivity extends AppCompatActivity {
                 swipeRefreshLayout.setRefreshing(false);
                 if (url != null && url.startsWith("https://") && !url.contains("data:")) {
                     onPageSuccess();
+                    // Background check for GitHub release updates without blocking UI
+                    AppUpdateManager.checkForUpdates(MainActivity.this, BuildConfig.VERSION_NAME);
                 }
                 // Flush cookies to persistent storage on every page transition
                 CookieManager.getInstance().flush();
@@ -332,28 +342,10 @@ public class MainActivity extends AppCompatActivity {
                 }
                 MainActivity.this.filePathCallback = filePathCallback;
 
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addCategory(Intent.CATEGORY_OPENABLE);
-
-                // Set MIME types from file chooser params if provided
-                String[] acceptTypes = fileChooserParams.getAcceptTypes();
-                if (acceptTypes != null && acceptTypes.length > 0 && !acceptTypes[0].isEmpty()) {
-                    if (acceptTypes.length == 1) {
-                        intent.setType(acceptTypes[0]);
-                    } else {
-                        intent.setType("*/*");
-                        intent.putExtra(Intent.EXTRA_MIME_TYPES, acceptTypes);
-                    }
-                } else {
-                    intent.setType("*/*");
-                }
-
-                if (fileChooserParams.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) {
-                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                }
+                Intent intent = buildFileChooserIntent(fileChooserParams);
 
                 try {
-                    fileChooserLauncher.launch(Intent.createChooser(intent, "Upload File"));
+                    fileChooserLauncher.launch(Intent.createChooser(intent, "Upload File or Image"));
                     return true;
                 } catch (ActivityNotFoundException e) {
                     if (MainActivity.this.filePathCallback != null) {
@@ -431,7 +423,67 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-        private void handleNetworkError() {
+    /**
+     * Constructs a safe, clean file chooser Intent with support for multi-select,
+     * parsed MIME types, image types, and extension mappings.
+     */
+    private Intent buildFileChooserIntent(WebChromeClient.FileChooserParams fileChooserParams) {
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+
+        String[] acceptTypes = fileChooserParams != null ? fileChooserParams.getAcceptTypes() : null;
+        List<String> validMimeTypes = new ArrayList<>();
+
+        if (acceptTypes != null) {
+            for (String rawType : acceptTypes) {
+                if (rawType != null && !rawType.trim().isEmpty()) {
+                    String[] parts = rawType.split(",");
+                    for (String part : parts) {
+                        String clean = part.trim();
+                        if (!clean.isEmpty()) {
+                            if (clean.startsWith(".")) {
+                                String ext = clean.substring(1).toLowerCase();
+                                String mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+                                if (mime != null) {
+                                    validMimeTypes.add(mime);
+                                }
+                            } else {
+                                validMimeTypes.add(clean);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (validMimeTypes.isEmpty()) {
+            intent.setType("*/*");
+        } else if (validMimeTypes.size() == 1) {
+            intent.setType(validMimeTypes.get(0));
+        } else {
+            boolean allImages = true;
+            for (String mime : validMimeTypes) {
+                if (!mime.startsWith("image/")) {
+                    allImages = false;
+                    break;
+                }
+            }
+            if (allImages) {
+                intent.setType("image/*");
+            } else {
+                intent.setType("*/*");
+            }
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, validMimeTypes.toArray(new String[0]));
+        }
+
+        if (fileChooserParams != null && fileChooserParams.getMode() == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+            intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        }
+
+        return intent;
+    }
+
+    private void handleNetworkError() {
         if (isOfflineState) {
             return;
         }
@@ -489,6 +541,7 @@ public class MainActivity extends AppCompatActivity {
         if (webView != null) {
             webView.onResume();
         }
+        AppUpdateManager.checkPendingInstall(this);
     }
 
     @Override
@@ -502,6 +555,10 @@ public class MainActivity extends AppCompatActivity {
         if (webView != null) {
             webView.destroy();
             webView = null;
+        }
+        if (filePathCallback != null) {
+            filePathCallback.onReceiveValue(null);
+            filePathCallback = null;
         }
         super.onDestroy();
         retryHandler.removeCallbacks(retryRunnable);

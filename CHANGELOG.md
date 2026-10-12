@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.0.2] - 2026-10-12
+
+### Fixed & Enhanced
+
+- **Smooth In-App Scrolling & Gestures (Scroll-Up Reload Bug Fixed):**
+  - Resolved the critical issue where scrolling up in chat history, battle responses, or leaderboards triggered an unexpected page reload and destroyed conversation state.
+  - Disabled `SwipeRefreshLayout`'s touch drag interception (`swipeRefreshLayout.setEnabled(false)` and `swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) -> true)`).
+  - All vertical touch gestures now flow seamlessly and uninterrupted to the underlying WebView and internal DOM containers.
+
+- **In-App Automated Self-Updater from GitHub Releases:**
+  - Added background update checker (`AppUpdateManager`) that automatically checks `https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest`.
+  - Added semantic version comparison logic to determine if a newer version is published.
+  - Prompts the user with a clean, native `AlertDialog` asking if they would like to download and install the update.
+  - Downloads the APK directly to app cache and initiates the system package installer via `androidx.core.content.FileProvider`.
+  - Configured `<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />` and `res/xml/file_paths.xml`.
+  - Zero persistent UI clutter added to the core application interface.
+
+- **Enhanced Multi-File & Image Upload Bridge:**
+  - Refactored `onShowFileChooser` to support complex comma-separated MIME types, extension mapping (e.g. `.png`, `.jpg`), and image wildcards (`image/*`).
+  - Added support for `ClipData` multi-selection, allowing multiple benchmark images to be uploaded simultaneously for Vision battles.
+  - Guaranteed safe cancellation callbacks so the WebView file picker never hangs.
+
+- **Automated Testing:**
+  - Added `AppUpdateManagerTest.java` unit test suite covering semantic version comparisons, tag prefixes, and edge cases.
+  - Maintained 100% pass rate across all 35 audit compliance test suites.
+
+---
+
 ## [1.0.1] - 2026-10-11
 
 ### Fixed & Hardened (Complete Audit Remediation & Mobile Production Release)
