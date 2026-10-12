@@ -1,6 +1,6 @@
 {
   "name": "arena-ai-android",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Unofficial standalone Android client and development companion gateway for Arena (arena.ai)",
   "main": "server.js",
   "scripts": {

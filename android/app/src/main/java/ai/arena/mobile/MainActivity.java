@@ -528,7 +528,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
         } catch (Exception ignored) {
-            return "1.0.2";
+            return "1.0.3";
         }
     }
 
