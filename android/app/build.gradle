@@ -42,12 +42,12 @@ if (!hasReleaseSigning) {
 
 android {
     namespace 'ai.arena.mobile'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "ai.arena.mobile"
         minSdk 26
-        targetSdk 34
+        targetSdk 35
         versionCode 5
         versionName "1.0.4"
 
@@ -72,7 +72,12 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled false
+            // R8 shrinks and obfuscates the app. The keep rules in proguard-rules.pro are
+            // deliberately broad: every public member of ai.arena.mobile and the AndroidX
+            // components the manifest references survive, so nothing that the framework
+            // instantiates by name can disappear.
+            minifyEnabled true
+            shrinkResources true
             signingConfig hasReleaseSigning ? signingConfigs.release : signingConfigs.debug
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
@@ -95,8 +100,24 @@ android {
     }
 
     lint {
+        // Reports are uploaded as a CI artifact; a lint error must not block a release
+        // build that the unit tests and scripts/verify-apk.sh already gate.
         abortOnError = false
-        checkReleaseBuilds = false
+        checkReleaseBuilds = true
+        warningsAsErrors = false
+    }
+
+    packaging {
+        resources {
+            excludes += [
+                    'META-INF/DEPENDENCIES',
+                    'META-INF/LICENSE*',
+                    'META-INF/NOTICE*',
+                    'META-INF/*.kotlin_module',
+                    'DebugProbesKt.bin',
+                    'kotlin/**'
+            ]
+        }
     }
 }
 
@@ -119,6 +140,7 @@ dependencies {
     implementation 'androidx.webkit:webkit:1.10.0'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.activity:activity:1.8.2'
+    implementation 'androidx.core:core:1.13.1'
 
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'

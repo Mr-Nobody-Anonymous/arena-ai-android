@@ -37,7 +37,7 @@ Legend: **Done** · **Partial** · **Not done** (reason given).
 | Check | Result |
 | :--- | :--- |
 | Java compile | All 4 main sources **and** both unit-test sources compile with **0 errors** (ECJ 3.12.1, `-1.8`) against the real `android-34.jar` platform API plus stubs written to the published signatures for every AndroidX type used (`appcompat`, `activity`, `webkit`, `swiperefreshlayout`, `core`, `annotation`, `lifecycle`). No JDK/Android SDK exists in this sandbox, so this was the only compile check available locally. GitHub Actions run `39127380211` then built the branch for real: `test`, `lintDebug`, `assembleRelease`, `assembleDebug` and `scripts/verify-apk.sh` all succeeded. |
-| `npm test` | **81 / 81 passed** (11 suites) |
+| `npm test` | **92 / 92 passed** (11 suites) |
 | Syntax | `node --check` on `server.js` and every file in `tests/`; `py_compile` on `process_official_icon.py`; YAML parse of both workflows and `dependabot.yml` |
 | Icon generator | Re-run end-to-end into a temp directory: 10 PNGs, correct density ladder (48→192 px), RGBA |
 | Refresh gesture | The page-side gating shim was executed in a Node DOM harness: a scrolled nested container blocks the pull, returning to its top re-arms it, a scrolled root blocks it, and a scrolled off-screen container does not |
@@ -76,10 +76,10 @@ Legend: **Done** · **Partial** · **Not done** (reason given).
 | ID | Status | What changed |
 | :--- | :--- | :--- |
 | M1 | **Done** | `package-lock.json` regenerated; root is `arena-ai-android@1.0.3`, `private: true`. |
-| M2 | **Not done** | The only `npm audit fix` path downgrades the dev-only `http-proxy-middleware` to 0.2.0. Left as-is and documented. |
+| M2 | **Not done** | The tree already runs the latest `braces@3.0.3`, `micromatch@4.0.8` and `http-proxy-middleware@4.2.0`; npm's advisory has no patched release, so the only "fix" is downgrading the dev-only proxy to 0.2.0. Documented instead of shipped. |
 | M3 | **Done** | `tests/test-results.json` untracked (`git rm --cached`) and ignored. |
 | M4 | **Done** | CI now runs unit tests, `lintDebug`, `npm test`, `npm audit` (report-only), wrapper validation, Gradle/npm caching, timeouts and concurrency groups. |
-| M5 | **Not done** | Gradle 8.2 / AGP 8.2.2 / compileSdk 34 unchanged: the toolchain cannot be built or exercised in this environment, and moving it blind risks a red release. |
+| M5 | **Done** | Gradle **8.9**, AGP **8.7.3**, `compileSdk`/`targetSdk` **35**, minSdk 26. Android 15 edge-to-edge is handled with `systemBars` + `displayCutout` inset padding, so layout is unchanged on older devices. Validated by the green CI build. |
 | M6 | **Done** | Icon script rewritten: Pillow, correct `res/` paths, density ladder, round icons, monochrome layer; `requirements.txt` added. |
 | M7 | **Done** | Dev server detects the real LAN address and puts it in the QR code. |
 | M8 | **Done** | Suite 11 drives `/api/version`, the health endpoint, `/api/arena-status` and the non-loopback URL. |
@@ -91,22 +91,39 @@ Legend: **Done** · **Partial** · **Not done** (reason given).
 | M14 | **Done** | `res/xml/data_extraction_rules.xml` (cloud backup and D2D both excluded) referenced from the manifest. |
 | M15 | **Done** | Release body is rendered inside the update dialog before installing. |
 | M16 | **Partial** | CI emits `SHA256SUMS` and `scripts/verify-apk.sh` verifies the artifact. No GPG-signed tags or signed checksum file — there is no key to sign with, and inventing one would be worse than none. |
-| M17 | **Partial** | "Verify Your Download" section added to the README. No screenshots, Known Issues or release checklist. |
-| M18 | **Not done** | No maintainer address is published anywhere in the repo; `SECURITY.md` points at GitHub private vulnerability reporting instead. |
+| M17 | **Partial** | "Verify Your Download", a **Known Issues** table and a full release checklist ([`RELEASE.md`](RELEASE.md)) were added. Still no screenshots: no device or emulator is available to capture the real UI, and mock-ups would be dishonest. |
+| M18 | **Done** | `SECURITY.md` and `CODE_OF_CONDUCT.md` now point at GitHub private vulnerability reporting (`/security/advisories/new`) and the maintainer handle, plus an enforcement ladder. No email address is published, by choice. |
 | M19 | **Not done** | The root `ArenaAI.apk` stays because it is the published v1.0.3 artifact that `SHA256SUMS`, the README and the test suite pin. Removing it belongs to a future release, together with a re-pointed checksum. |
-| M20 | **Partial** | `requirements.txt`, `npm run generate-icons` / `verify-apk` / `start` scripts, `private: true`. No `start.sh`/`test.sh` yet. |
-| M21 | **Partial** | `androidx.webkit` is now genuinely used (`WebMessageListener`, `setAlgorithmicDarkeningAllowed`). `minifyEnabled` is still `false`: R8 cannot be validated without a build, and a bad keep-rule ships a crashing APK. ProGuard rules are nonetheless written and ready. |
+| M20 | **Done** | `requirements.txt`, npm scripts, `private: true`, plus executable **`start.sh` / `test.sh`** that run `npm ci` first, and a `Dockerfile` + `docker-compose.yml` for the dev proxy. |
+| M21 | **Done** | `androidx.webkit` is genuinely used, and release builds now run **R8** (`minifyEnabled true`, `shrinkResources true`) with broad keep rules; CI builds the shrunk APK and uploads `mapping.txt`. |
 | M22 | **Done** | Backoff 5 s → 30 s, `destroyed` guards, callbacks removed on destroy, no executor use after shutdown. |
-| M23 | **Not done** | The policy is restructured into `INTERNAL_HOST_SUFFIXES` (shim injection) vs `AUTH_HOST_SUFFIXES` (popups) vs the rest, but not narrowed further: SSO breakage cannot be validated without a device, and a half-narrowed list is worse than a documented one. |
+| M23 | **Done** | Broad consumer domains were removed: `google.com` → `accounts.google.com`, `live.com` → `login.live.com`. The remaining entries are the exact OAuth hosts (GitHub, Apple, Microsoft, Discord, Hugging Face, Auth0) plus Arena. Unit tests assert `google.com`, `mail.google.com` and `live.com` are blocked. |
 | M24 | **Done** | `versionCode` **and** `versionName` comparison, draft/prerelease filtering, skip-version persistence. |
+
+### Second pass — toolchain, hygiene and release hardening
+
+| Item | Status | What changed |
+| :--- | :--- | :--- |
+| Toolchain (M5) | **Done** | Gradle 8.9, AGP 8.7.3, SDK 35, edge-to-edge insets |
+| R8 (M21) | **Done** | `minifyEnabled`/`shrinkResources` on, keep rules reviewed, mapping uploaded |
+| Allow-list (M23) | **Done** | `google.com` and `live.com` removed; exact OAuth hosts only |
+| Contact channels (M18) | **Done** | Private advisory link + maintainer handle in SECURITY/CoC |
+| Unix scripts (M20) | **Done** | `start.sh`, `test.sh`, `scripts/release-check.sh` |
+| Known Issues / checklist (M17) | **Partial** | Both added; screenshots still impossible without a device |
+| CodeQL | **Done** | `.github/workflows/codeql.yml` for java-kotlin + javascript-typescript |
+| Repo hygiene files | **Done** | `CODEOWNERS`, `.editorconfig`, `.nvmrc`, `CITATION.cff`, issue-template contacts |
+| Dev proxy container | **Done** | `Dockerfile`, `docker-compose.yml`, `.dockerignore` |
+| Release safety | **Done** | `release.yml` pins the signing certificate (`EXPECTED_CERT_SHA256`), adds a `dry_run` mode, refreshes notes on re-publish, and `RELEASE.md` documents the contract |
+| npm advisories (M2) | **Not done** | No patched `braces` release exists; the only fix is a downgrade |
 
 ### Deliberate non-goals
 
 These were considered and rejected because they would either add native chrome or require unverifiable changes:
 
 - **In-app About / Privacy / Licenses / disclaimer screen** (M10) — new UI.
+- **Screenshots / GIFs** (M17) — no device or emulator exists to capture the real UI.
 - **Camera and microphone permission for `getUserMedia`** (low-priority list) — resolves to either a new in-app prompt (new UI) or silently granting mic/camera to a web page from a wrapper; the app intentionally declares neither permission, and the test suite enforces that.
-- **R8 shrinking and toolchain upgrade** (M5, M21) — cannot be compiled here; a blind change would ship unverified.
+- ~~R8 shrinking and toolchain upgrade~~ — **done** in the second pass (M5, M21).
 - **Inbound deep links / share target** (M13) — needs `assetlinks.json` on a domain this project does not own.
 - **GPG-signed tags and checksums** (M16) — requires a key that does not exist.
 

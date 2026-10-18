@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Mr-Nobody-Anonymous/arena-ai-android/security/advisories/new
+    about: Please report vulnerabilities privately, never in a public issue.
+  - name: Installation & update questions
+    url: https://github.com/Mr-Nobody-Anonymous/arena-ai-android#-download--installation-guide
+    about: Check the README first — it covers unknown sources, signature mismatches and the updater.
+  - name: Release process
+    url: https://github.com/Mr-Nobody-Anonymous/arena-ai-android/blob/main/RELEASE.md
+    about: How a release is built, verified and published.

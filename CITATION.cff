@@ -1,0 +1,16 @@
+cff-version: 1.2.0
+message: "If you use this Android client in academic work, please cite it as below."
+title: "Arena.ai Android Client"
+abstract: >-
+  An unofficial, community-maintained Android client for Arena (arena.ai),
+  packaged as a hardened WebView shell with a native capability bridge.
+type: software
+license: Apache-2.0
+repository-code: "https://github.com/Mr-Nobody-Anonymous/arena-ai-android"
+keywords:
+  - android
+  - webview
+  - llm-evaluation
+  - arena
+version: 1.0.4
+date-released: 2026-10-18

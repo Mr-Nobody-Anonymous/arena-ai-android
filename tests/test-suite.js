@@ -92,12 +92,19 @@ async function runAllTests() {
   const mainActivitySrc = fs.existsSync(mainActivityPath) ? fs.readFileSync(mainActivityPath, 'utf8') : '';
   const buildGradleSrc = fs.existsSync(buildGradlePath) ? fs.readFileSync(buildGradlePath, 'utf8') : '';
   const gradlePropertiesSrc = fs.existsSync(gradlePropertiesPath) ? fs.readFileSync(gradlePropertiesPath, 'utf8') : '';
+  const rootBuildGradlePath = path.join(androidDir, 'build.gradle');
+  const rootBuildGradleSrc = fs.existsSync(rootBuildGradlePath) ? fs.readFileSync(rootBuildGradlePath, 'utf8') : '';
+  const wrapperPropsPath = path.join(androidDir, 'gradle', 'wrapper', 'gradle-wrapper.properties');
+  const wrapperPropsSrc = fs.existsSync(wrapperPropsPath) ? fs.readFileSync(wrapperPropsPath, 'utf8') : '';
 
   logTest('Android Core', 'Package Unified to ai.arena.mobile',
     buildGradleSrc.includes("applicationId \"ai.arena.mobile\"") && mainActivitySrc.includes("package ai.arena.mobile;"));
 
-  logTest('Android Core', 'Target SDK 34+ and Modern Min SDK 26 configured',
-    buildGradleSrc.includes("minSdk 26") && buildGradleSrc.includes("targetSdk 34"));
+  logTest('Android Core', 'Target SDK 35+ and Modern Min SDK 26 configured',
+    buildGradleSrc.includes("minSdk 26")
+    && buildGradleSrc.includes("targetSdk 35")
+    && buildGradleSrc.includes("compileSdk 35"));
+
 
   logTest('Android Security', 'Cleartext Traffic Disabled (HTTPS only)',
     manifestSrc.includes('android:usesCleartextTraffic="false"'));
@@ -122,6 +129,12 @@ async function runAllTests() {
 
   logTest('Android Security', 'Navigation Allow-List Configured (External links open in system browser)',
     mainActivitySrc.includes('ALLOWED_HOST_SUFFIXES') && mainActivitySrc.includes('Intent.ACTION_VIEW'));
+
+  logTest('Android Security', 'Navigation allow-list is narrow (no broad consumer domains)',
+    mainActivitySrc.includes('"accounts.google.com"')
+    && mainActivitySrc.includes('"login.live.com"')
+    && !mainActivitySrc.includes('"google.com"')
+    && !mainActivitySrc.includes('"live.com"'));
 
   logTest('Android Navigation', 'Modern OnBackPressedDispatcher used (API 34/35/36 compliant)',
     mainActivitySrc.includes('OnBackPressedCallback') && !mainActivitySrc.includes('onKeyDown('));
@@ -207,13 +220,49 @@ async function runAllTests() {
   const gradlewExists = fs.existsSync(path.join(androidDir, 'gradlew'));
   const gradlewBatExists = fs.existsSync(path.join(androidDir, 'gradlew.bat'));
   const wrapperJarExists = fs.existsSync(path.join(androidDir, 'gradle', 'wrapper', 'gradle-wrapper.jar'));
-  const wrapperProps = path.join(androidDir, 'gradle', 'wrapper', 'gradle-wrapper.properties');
-  const wrapperPropsSrc = fs.existsSync(wrapperProps) ? fs.readFileSync(wrapperProps, 'utf8') : '';
+  const wrapperProps = wrapperPropsPath;
 
   logTest('Build System', 'Gradle Wrapper Shell Script (gradlew) Present', gradlewExists);
   logTest('Build System', 'Gradle Wrapper Windows Batch (gradlew.bat) Present', gradlewBatExists);
   logTest('Build System', 'Gradle Wrapper Jar Present', wrapperJarExists);
-  logTest('Build System', 'Gradle 8.2 configured in wrapper properties', wrapperPropsSrc.includes('gradle-8.2'));
+  logTest('Build System', 'Gradle 8.9 configured in wrapper properties', wrapperPropsSrc.includes('gradle-8.9'));
+  logTest('Android Build', 'Toolchain is current (AGP 8.7 / Gradle 8.9)',
+    rootBuildGradleSrc.includes("version '8.7.3'")
+    && wrapperPropsSrc.includes('gradle-8.9'));
+
+  logTest('Android Build', 'Release builds are shrunk by R8 and resources are shrunk',
+    buildGradleSrc.includes('minifyEnabled true')
+    && buildGradleSrc.includes('shrinkResources true')
+    && fs.readFileSync(path.join(androidDir, 'app', 'proguard-rules.pro'), 'utf8').includes('-keep public class ai.arena.mobile.**'));
+
+  logTest('Android Build', 'Edge-to-edge window insets are handled (targetSdk 35)',
+    mainActivitySrc.includes('setOnApplyWindowInsetsListener')
+    && mainActivitySrc.includes('WindowInsetsCompat.Type.systemBars()')
+    && mainActivitySrc.includes('displayCutout()'));
+
+  logTest('Repo hygiene', 'Unix helper scripts exist and are executable',
+    ['start.sh', 'test.sh'].every((f) => {
+      const p = path.join(projectRoot, f);
+      return fs.existsSync(p) && (fs.statSync(p).mode & 0o111) !== 0;
+    }));
+
+  logTest('Repo hygiene', 'Release checklist and pre-flight script exist',
+    fs.existsSync(path.join(projectRoot, 'RELEASE.md'))
+    && fs.existsSync(path.join(projectRoot, 'scripts', 'release-check.sh')));
+
+  logTest('Repo hygiene', 'CODEOWNERS, editorconfig and node version pin exist',
+    fs.existsSync(path.join(projectRoot, '.github', 'CODEOWNERS'))
+    && fs.existsSync(path.join(projectRoot, '.editorconfig'))
+    && fs.existsSync(path.join(projectRoot, '.nvmrc')));
+
+  logTest('Repo hygiene', 'Dev proxy is containerisable (Dockerfile + compose)',
+    fs.existsSync(path.join(projectRoot, 'Dockerfile'))
+    && fs.existsSync(path.join(projectRoot, 'docker-compose.yml')));
+
+  logTest('Supply chain', 'CodeQL analysis runs for Java and JavaScript',
+    fs.existsSync(path.join(projectRoot, '.github', 'workflows', 'codeql.yml'))
+    && fs.readFileSync(path.join(projectRoot, '.github', 'workflows', 'codeql.yml'), 'utf8')
+        .includes('github/codeql-action/analyze@v3'));
 
   const ciWorkflowPath = path.join(projectRoot, '.github', 'workflows', 'build.yml');
   const ciSrc = fs.existsSync(ciWorkflowPath) ? fs.readFileSync(ciWorkflowPath, 'utf8') : '';
@@ -346,6 +395,15 @@ async function runAllTests() {
   logTest('CI / Automation', 'Tag-triggered signed release workflow exists',
     releaseSrc.includes("tags:") && releaseSrc.includes('environment: release')
     && releaseSrc.includes('gh release upload'));
+
+  logTest('Release engineering', 'Publishing is pinned to the documented signing certificate',
+    releaseSrc.includes('EXPECTED_CERT_SHA256')
+    && releaseSrc.includes('0A:78:95:E6')
+    && releaseSrc.includes('--print-certs'));
+  logTest('Release engineering', 'Release pipeline has a dry-run mode and refuses unsigned builds',
+    releaseSrc.includes('dry_run')
+    && releaseSrc.includes('Refusing to publish a debug-signed APK'));
+
 
   logTest('CI / Automation', 'Build workflow validates the Gradle wrapper and audits dependencies',
     ciSrc.includes('wrapper-validation') && ciSrc.includes('npm audit'));

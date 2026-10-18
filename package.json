@@ -8,7 +8,8 @@
     "start": "node server.js",
     "test": "node tests/runner.js",
     "generate-icons": "python process_official_icon.py",
-    "verify-apk": "bash scripts/verify-apk.sh"
+    "verify-apk": "bash scripts/verify-apk.sh",
+    "release:check": "bash scripts/release-check.sh"
   },
   "repository": {
     "type": "git",

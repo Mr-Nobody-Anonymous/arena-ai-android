@@ -2,6 +2,16 @@
 
 -keepattributes *Annotation*
 -keepattributes JavascriptInterface
+-keepattributes Signature
+-keepattributes InnerClasses
+-keepattributes EnclosingMethod
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
+
+# Platform APIs referenced by name only (never bundled).
+-dontwarn org.w3c.dom.**
+-dontwarn javax.annotation.**
+-dontwarn kotlin.**
 
 # Keep anything exposed to JavaScript through a WebView bridge.
 -keepclassmembers class * {
