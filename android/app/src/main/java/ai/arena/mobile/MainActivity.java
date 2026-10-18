@@ -158,9 +158,62 @@ public class MainActivity extends AppCompatActivity {
                     + "}"
                     + "}catch(e){}})();";
 
+    /**
+     * Reports whether the page can still be pulled down, i.e. the document is at the top
+     * <em>and</em> no visible nested scroll container is scrolled. Arena renders chats and
+     * battles inside {@code overflow-y: scroll} containers while the WebView's own root stays
+     * at 0, so a native-only check cannot tell "at the top" from "scrolled deep in history".
+     * Scroll events (including nested ones, captured on window) update the state and only
+     * transitions are posted over the origin-locked bridge.
+     */
+    private static final String VIEWPORT_SHIM_JS =
+            "(function(){try{"
+                    + "if(window.__arenaViewportShim){return;}window.__arenaViewportShim=true;"
+                    + "var bridge=window.arenaAndroid;"
+                    + "if(!bridge||typeof bridge.postMessage!=='function'){return;}"
+                    + "var last=null,scrolled=[],pending=false,primed=false;"
+                    + "function root(){var d=document.scrollingElement||document.documentElement;"
+                    + "return (window.pageYOffset||(d&&d.scrollTop)||0)<=0;}"
+                    + "function track(el){if(!el||el.nodeType!==1){return;}var i=scrolled.indexOf(el);"
+                    + "if(el.scrollTop>1){if(i<0){scrolled.push(el);}}else if(i>=0){scrolled.splice(i,1);}}"
+                    + "function prime(){if(primed){return;}primed=true;"
+                    + "try{var all=document.querySelectorAll('*');"
+                    + "for(var i=0;i<all.length;i++){if(all[i].scrollTop>1){scrolled.push(all[i]);}}}catch(e){}}"
+                    + "function compute(){if(!root()){return false;}"
+                    + "for(var i=scrolled.length-1;i>=0;i--){var el=scrolled[i];"
+                    + "if(!el.isConnected||el.scrollTop<=1){scrolled.splice(i,1);continue;}"
+                    + "var r=el.getBoundingClientRect();"
+                    + "if(r.bottom>0&&r.top<window.innerHeight&&r.right>0&&r.left<window.innerWidth){return false;}}"
+                    + "return true;}"
+                    + "function report(){pending=false;prime();var atTop=compute();if(atTop===last){return;}"
+                    + "last=atTop;"
+                    + "try{bridge.postMessage(JSON.stringify({type:'viewport',atTop:atTop}));}catch(e){}}"
+                    + "function schedule(){if(pending){return;}pending=true;"
+                    + "(window.requestAnimationFrame||function(cb){setTimeout(cb,16);})(report);}"
+                    + "window.addEventListener('scroll',function(e){"
+                    + "track(e.target===document?(document.scrollingElement||document.documentElement):e.target);"
+                    + "schedule();},true);"
+                    + "window.addEventListener('resize',schedule);"
+                    + "window.addEventListener('load',schedule);"
+                    + "setTimeout(schedule,0);setTimeout(schedule,400);setTimeout(schedule,1500);"
+                    + "}catch(e){}})();";
+
     private boolean isOfflineState = false;
     private boolean destroyed = false;
     private int retryDelayMs = INITIAL_RETRY_DELAY_MS;
+
+    /**
+     * True while the web app reports that neither the document nor any visible nested
+     * scroller is scrolled away from its top. Pull-to-refresh is armed only in that
+     * state; this is what keeps "scroll up through a battle" from reloading the page.
+     *
+     * It starts false and is only set by the page itself (see {@link #VIEWPORT_SHIM_JS}),
+     * so old WebViews without the WebMessage bridge simply keep the gesture disabled
+     * instead of bringing the accidental-reload bug back.
+     */
+    private volatile boolean pageAtTop = false;
+    private volatile boolean pageLoading = true;
+    private volatile boolean viewportTrackingAvailable = false;
 
     private final Handler retryHandler = new Handler(Looper.getMainLooper());
     private final ExecutorService networkExecutor = Executors.newSingleThreadExecutor();
@@ -265,11 +318,14 @@ public class MainActivity extends AppCompatActivity {
         swipeRefreshLayout = new SwipeRefreshLayout(this);
         swipeRefreshLayout.setColorSchemeColors(Color.WHITE);
         swipeRefreshLayout.setProgressBackgroundColorSchemeColor(Color.BLACK);
+        swipeRefreshLayout.setDistanceToTriggerSync(
+                Math.round(64 * getResources().getDisplayMetrics().density));
 
-        // Keep the WebView's own scroll handling: pull-to-refresh stays disabled so
-        // scrolling up through a battle never reloads and destroys the conversation.
-        swipeRefreshLayout.setEnabled(false);
-        swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) -> true);
+        // Pull-to-refresh is armed only when the page itself says it is at the very top
+        // (see VIEWPORT_SHIM_JS). The WebView's root scroll position is always 0 for the
+        // SPA, so a native-only check would turn "scroll up in a chat" into a reload.
+        swipeRefreshLayout.setEnabled(true);
+        swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) -> !canPullToRefresh());
 
         webView = createWebView();
 
@@ -368,12 +424,22 @@ public class MainActivity extends AppCompatActivity {
         cookieManager.setAcceptCookie(true);
         cookieManager.setAcceptThirdPartyCookies(view, true);
 
-        // Programmatic refresh (gesture refresh is intentionally disabled above).
+        // Pulling down at the top reloads the current page; on the reconnect screen the
+        // same gesture retries the connection immediately.
         swipeRefreshLayout.setOnRefreshListener(() -> {
-            isOfflineState = false;
-            retryDelayMs = INITIAL_RETRY_DELAY_MS;
             retryHandler.removeCallbacks(retryRunnable);
-            view.loadUrl(ARENA_HOME_URL);
+            if (isOfflineState) {
+                isOfflineState = false;
+                retryDelayMs = INITIAL_RETRY_DELAY_MS;
+                view.loadUrl(ARENA_HOME_URL);
+                return;
+            }
+            String current = view.getUrl();
+            if (current == null || current.startsWith(OFFLINE_BASE_URL)) {
+                view.loadUrl(ARENA_HOME_URL);
+            } else {
+                view.reload();
+            }
         });
 
         installShareBridge(view);
@@ -391,18 +457,29 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onPageStarted(WebView wv, String url, Bitmap favicon) {
+                super.onPageStarted(wv, url, favicon);
+                pageLoading = true;
+                // Until the freshly loaded page reports its own scroll position, pulling
+                // down must not reload anything.
+                pageAtTop = false;
+            }
+
+            @Override
             public void onPageFinished(WebView wv, String url) {
                 super.onPageFinished(wv, url);
                 swipeRefreshLayout.setRefreshing(false);
+                pageLoading = false;
                 if (url != null && url.startsWith(OFFLINE_BASE_URL)) {
                     // The reconnect screen finished loading: keep the retry loop alive.
+                    pageAtTop = true;
                     CookieManager.getInstance().flush();
                     return;
                 }
                 if (url != null && url.startsWith("https://")) {
                     onPageSuccess();
-                    injectShareShim(wv, url);
-                    // Throttled internally to one GitHub API call per 24h.
+                    injectPageShims(wv, url);
+                    // Throttled internally; also runs from onResume.
                     AppUpdateManager.checkForUpdates(MainActivity.this);
                 }
                 CookieManager.getInstance().flush();
@@ -413,6 +490,8 @@ public class MainActivity extends AppCompatActivity {
                 super.onReceivedError(wv, request, error);
                 if (request != null && request.isForMainFrame()) {
                     swipeRefreshLayout.setRefreshing(false);
+                    pageLoading = false;
+                    pageAtTop = false;
                     handleNetworkError();
                 }
             }
@@ -422,6 +501,8 @@ public class MainActivity extends AppCompatActivity {
             public void onReceivedError(WebView wv, int errorCode, String description, String failingUrl) {
                 super.onReceivedError(wv, errorCode, description, failingUrl);
                 swipeRefreshLayout.setRefreshing(false);
+                pageLoading = false;
+                pageAtTop = false;
                 handleNetworkError();
             }
 
@@ -430,6 +511,8 @@ public class MainActivity extends AppCompatActivity {
                 super.onReceivedHttpError(wv, request, errorResponse);
                 if (request != null && request.isForMainFrame() && errorResponse != null
                         && errorResponse.getStatusCode() >= 500) {
+                    pageLoading = false;
+                    pageAtTop = false;
                     handleNetworkError();
                 }
             }
@@ -863,24 +946,29 @@ public class MainActivity extends AppCompatActivity {
                         }
                         try {
                             JSONObject payload = new JSONObject(message.getData());
-                            if ("share".equals(payload.optString("type"))) {
+                            String type = payload.optString("type");
+                            if ("share".equals(type)) {
                                 share(payload.optString("title"), payload.optString("text"),
                                         payload.optString("url"));
+                            } else if ("viewport".equals(type)) {
+                                pageAtTop = payload.optBoolean("atTop", false);
                             }
                         } catch (Exception ignored) {
                         }
                     });
+            viewportTrackingAvailable = true;
         } catch (Exception ignored) {
         }
     }
 
-    private void injectShareShim(WebView view, String url) {
+    private void injectPageShims(WebView view, String url) {
         Uri uri = Uri.parse(url);
         if (uri.getHost() == null || !isInternalHost(uri.getHost())) {
             return;
         }
         try {
             view.evaluateJavascript(SHARE_SHIM_JS, null);
+            view.evaluateJavascript(VIEWPORT_SHIM_JS, null);
         } catch (Exception ignored) {
         }
     }
@@ -1077,6 +1165,28 @@ public class MainActivity extends AppCompatActivity {
     // Connectivity
     // ---------------------------------------------------------------------------------
 
+    /**
+     * Whether the pull-down gesture may start a refresh right now.
+     *
+     * <p>The reconnect screen always allows it (the gesture means "retry now"); a real page
+     * must have finished loading and reported that it is scrolled to the very top. The
+     * native {@code getScrollY()} check is a cheap belt-and-braces guard for pages that
+     * scroll the root document.
+     */
+    private boolean canPullToRefresh() {
+        WebView view = webView;
+        if (view == null || destroyed) {
+            return false;
+        }
+        if (isOfflineState) {
+            return true;
+        }
+        return viewportTrackingAvailable
+                && !pageLoading
+                && pageAtTop
+                && view.getScrollY() <= 0;
+    }
+
     private void handleNetworkError() {
         if (destroyed) {
             return;
@@ -1197,6 +1307,9 @@ public class MainActivity extends AppCompatActivity {
         }
         CookieManager.getInstance().flush();
         AppUpdateManager.checkPendingInstall(this);
+        // Throttled inside; this makes a release that appeared while the app was in the
+        // background show up as soon as the user comes back instead of after a navigation.
+        AppUpdateManager.checkForUpdates(this);
     }
 
     @Override

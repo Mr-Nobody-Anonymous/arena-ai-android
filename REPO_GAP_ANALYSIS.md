@@ -37,9 +37,10 @@ Legend: **Done** · **Partial** · **Not done** (reason given).
 | Check | Result |
 | :--- | :--- |
 | Java compile | All 4 main sources **and** both unit-test sources compile with **0 errors** (ECJ 3.12.1, `-1.8`) against the real `android-34.jar` platform API plus stubs written to the published signatures for every AndroidX type used (`appcompat`, `activity`, `webkit`, `swiperefreshlayout`, `core`, `annotation`, `lifecycle`). No JDK/Android SDK exists in this sandbox, so Gradle itself was **not** run. |
-| `npm test` | **76 / 76 passed** (11 suites) |
+| `npm test` | **81 / 81 passed** (11 suites) |
 | Syntax | `node --check` on `server.js` and every file in `tests/`; `py_compile` on `process_official_icon.py`; YAML parse of both workflows and `dependabot.yml` |
 | Icon generator | Re-run end-to-end into a temp directory: 10 PNGs, correct density ladder (48→192 px), RGBA |
+| Refresh gesture | The page-side gating shim was executed in a Node DOM harness: a scrolled nested container blocks the pull, returning to its top re-arms it, a scrolled root blocks it, and a scrolled off-screen container does not |
 | Action tags | `actions/checkout@v7`, `actions/setup-java@v6`, `actions/setup-node@v7`, `actions/upload-artifact@v7`, `android-actions/setup-android@v4`, `gradle/actions@v6` all resolve to real tags |
 
 ### Critical
@@ -60,12 +61,12 @@ Legend: **Done** · **Partial** · **Not done** (reason given).
 | H2 | **Done** | `PRIVACY.md` and `SECURITY.md` list `INTERNET` **and** `REQUEST_INSTALL_PACKAGES`; the test suite asserts the exact permission set. |
 | H3 | **Partial** | `LICENSE` and `NOTICE` are now packaged as `assets/LICENSE.txt` / `assets/NOTICE.txt`. The About/licenses **screen** is intentionally out of scope (no new UI). |
 | H4 | **Done** | Tag-triggered `release.yml` (protected `release` environment, tag↔`versionName` check, build → verify → checksum → publish) and `scripts/verify-apk.sh` (`apksigner --print-certs`, `zipalign -c`, `aapt`). |
-| H5 | **Done** | 24 h throttle (`KEY_LAST_CHECK`, written **before** the network call so a failure cannot bypass it), draft/prerelease filtering, and a persisted "skip this version". |
+| H5 | **Done** | Checks run on launch, on resume and after page loads. A 15-minute throttle (`KEY_LAST_CHECK`, written **before** the network call) keeps GitHub's unauthenticated quota safe, failures retry after 5 minutes, and the same release is re-offered at most once per 12 hours. Drafts/pre-releases are filtered and "skip this version" persists. |
 | H6 | **Done** | `onRenderProcessGone` recreate, `onReceivedHttpError` ≥500, `onReceivedSslError` cancel + message, offline screen served from a distinct base URL, backoff 5 s → 30 s, `destroyed` guards. |
 | H7 | **Done** | `DownloadHandler`: `DownloadManager` + cookies/UA, `blob:` resolved by page-side `fetch`/`FileReader`, `data:` decoding, `MediaStore.Downloads` on Q+, external-files fallback, size/time caps. |
 | H8 | **Done** | Popups tracked in `popupWindows`, origin-validated before load, closed on `onDestroy` and when the main page navigates. |
 | H9 | **Done** | `gradlew` and `scripts/verify-apk.sh` committed mode `100755`. |
-| H10 | **Done** | Suite rebuilt: 76 checks in 11 suites, including APK hash/zip-central-directory/v2-block parsing, permission set, signing config, workflow wiring and doc consistency. |
+| H10 | **Done** | Suite rebuilt: 81 checks in 11 suites, including APK hash/zip-central-directory/v2-block parsing, permission set, signing config, workflow wiring, page-aware pull-to-refresh and doc consistency. |
 | H11 | **Done** | Update traffic to `api.github.com`/`objects.githubusercontent.com`, third-party cookies for SSO, the install permission and recipients are all disclosed. |
 | H12 | **Done** | `android:enableOnBackInvokedCallback="true"` plus `OnBackPressedDispatcher` callback chaining to fullscreen exit → `goBack()` → system back. |
 | H13 | **Partial** | Progress dialog (message updated from the download thread), cancel button that disconnects the stream, `StatFs` free-space check, `.part` → `.apk` rename. No automatic retry button (that would be new chrome); re-opening the dialog retries. |

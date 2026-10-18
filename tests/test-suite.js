@@ -133,12 +133,40 @@ async function runAllTests() {
     mainActivitySrc.includes('CookieManager.getInstance().flush()'));
 
   logTest('Android UX', 'Pull-to-Refresh with SwipeRefreshLayout Integrated',
-    mainActivitySrc.includes('SwipeRefreshLayout'));
+    mainActivitySrc.includes('SwipeRefreshLayout')
+    && mainActivitySrc.includes('swipeRefreshLayout.setEnabled(true)')
+    && !mainActivitySrc.includes('swipeRefreshLayout.setEnabled(false)'));
+
+  logTest('Android UX', 'Pull-to-Refresh is gated by the page scroll position (no scroll-up reloads)',
+    mainActivitySrc.includes('canPullToRefresh')
+    && mainActivitySrc.includes('OnChildScrollUpCallback')
+    && mainActivitySrc.includes('VIEWPORT_SHIM_JS')
+    && mainActivitySrc.includes("type:'viewport'")
+    && mainActivitySrc.includes('payload.optBoolean("atTop"')
+    && mainActivitySrc.includes('pageLoading'));
+
+  logTest('Android UX', 'Pull-to-Refresh reloads the current page and retries when offline',
+    mainActivitySrc.includes('view.reload()')
+    && mainActivitySrc.includes('if (isOfflineState)'));
 
   const updateManagerPath = path.join(srcDir, 'java', 'ai', 'arena', 'mobile', 'AppUpdateManager.java');
   const updateManagerSrc = fs.existsSync(updateManagerPath) ? fs.readFileSync(updateManagerPath, 'utf8') : '';
   logTest('Android UX', 'In-App GitHub Self-Updater & Version Checker Integrated',
     fs.existsSync(updateManagerPath) && updateManagerSrc.includes('checkForUpdates') && updateManagerSrc.includes('isNewerVersion') && mainActivitySrc.includes('AppUpdateManager.checkForUpdates'));
+
+  logTest('Android UX', 'Updater checks on launch, resume and navigation (15-minute throttle)',
+    updateManagerSrc.includes('CHECK_INTERVAL_MS = 15L * 60L * 1000L')
+    && updateManagerSrc.includes('FAILURE_RETRY_MS')
+    && mainActivitySrc.includes('AppUpdateManager.checkForUpdates(this);'));
+
+  logTest('Android UX', 'Updater does not nag and recovers from failed checks',
+    updateManagerSrc.includes('KEY_LAST_CHECK_OK')
+    && updateManagerSrc.includes('PROMPT_COOLDOWN_MS')
+    && updateManagerSrc.includes('KEY_LAST_PROMPT_VERSION'));
+
+  logTest('Android UX', 'Updater only downloads over HTTPS and tolerates renamed assets',
+    updateManagerSrc.includes('startsWith("https://")')
+    && updateManagerSrc.includes('checksumCount == 1'));
 
   logTest('Android Build', 'AndroidX Enabled in gradle.properties',
     gradlePropertiesSrc.includes('android.useAndroidX=true'));
@@ -268,7 +296,9 @@ async function runAllTests() {
     && updateManagerSrc.includes('UpdateVerifier.verify'));
 
   logTest('Updater', 'Checksum comes from SHA256SUMS or the GitHub asset digest',
-    updateManagerSrc.includes('SHA256SUMS') && updateManagerSrc.includes('sha256:'));
+    updateManagerSrc.toLowerCase().includes('sha256sums')
+    && updateManagerSrc.includes('sha256:')
+    && updateManagerSrc.includes('findShaForFile'));
 
   logTest('Updater', 'Drafts and pre-releases are ignored',
     updateManagerSrc.includes('optBoolean("draft"') && updateManagerSrc.includes('optBoolean("prerelease"'));

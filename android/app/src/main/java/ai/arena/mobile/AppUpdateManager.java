@@ -58,8 +58,22 @@ public class AppUpdateManager {
 
     private static final String PREFS_NAME = "arena_updates";
     private static final String KEY_LAST_CHECK = "last_check";
+    private static final String KEY_LAST_CHECK_OK = "last_check_ok";
     private static final String KEY_SKIPPED_VERSION = "skipped_version";
-    private static final long CHECK_INTERVAL_MS = 24L * 60L * 60L * 1000L;
+    private static final String KEY_LAST_PROMPT_VERSION = "last_prompt_version";
+    private static final String KEY_LAST_PROMPT_TIME = "last_prompt_time";
+
+    /**
+     * Normal spacing between successful checks. Short enough that a release published while
+     * the app is in use shows up the next time the user navigates or returns to the app,
+     * long enough that the unauthenticated GitHub API quota (60 requests/hour) is never at
+     * risk: at most four checks per hour.
+     */
+    private static final long CHECK_INTERVAL_MS = 15L * 60L * 1000L;
+    /** After a failed check (offline, rate-limited, GitHub down) retry much sooner. */
+    private static final long FAILURE_RETRY_MS = 5L * 60L * 1000L;
+    /** The same release is offered at most once per this window, even across restarts. */
+    private static final long PROMPT_COOLDOWN_MS = 12L * 60L * 60L * 1000L;
     private static final int MAX_RELEASE_NOTES_CHARS = 1200;
 
     private static final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
@@ -91,10 +105,14 @@ public class AppUpdateManager {
         final SharedPreferences prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         long lastCheck = prefs.getLong(KEY_LAST_CHECK, 0L);
         long now = System.currentTimeMillis();
-        if (now - lastCheck < CHECK_INTERVAL_MS) {
+        // A failed check must not silence the updater for a whole interval, but it must not
+        // let every page load hit the API either.
+        boolean lastCheckSucceeded = prefs.getBoolean(KEY_LAST_CHECK_OK, true);
+        long interval = lastCheckSucceeded ? CHECK_INTERVAL_MS : FAILURE_RETRY_MS;
+        if (now - lastCheck < interval) {
             return;
         }
-        if (promptShownThisSession) {
+        if (promptShownThisSession || downloading.get()) {
             return;
         }
         if (!checking.compareAndSet(false, true)) {
@@ -103,16 +121,18 @@ public class AppUpdateManager {
 
         updateExecutor.execute(() -> {
             try {
-                // Record the attempt even if it fails, so a flaky network cannot make
-                // every page load hammer the unauthenticated GitHub API.
+                // Claim the slot before touching the network, so a flaky connection cannot
+                // make every page load hammer the unauthenticated GitHub API.
                 prefs.edit().putLong(KEY_LAST_CHECK, now).apply();
 
                 String json = fetchText(GITHUB_LATEST_RELEASE_URL);
                 if (json == null) {
+                    prefs.edit().putBoolean(KEY_LAST_CHECK_OK, false).apply();
                     return;
                 }
 
                 JSONObject release = new JSONObject(json);
+                prefs.edit().putBoolean(KEY_LAST_CHECK_OK, true).apply();
                 if (release.optBoolean("draft", false) || release.optBoolean("prerelease", false)) {
                     return;
                 }
@@ -141,13 +161,26 @@ public class AppUpdateManager {
                             continue;
                         }
                         String name = asset.optString("name", "");
-                        if (apkUrl == null && name.toLowerCase(Locale.US).endsWith(".apk")) {
-                            apkUrl = asset.optString("browser_download_url", null);
-                            apkName = name;
-                            apkSize = asset.optLong("size", 0L);
-                            assetDigest = asset.optString("digest", null);
-                        } else if (sumsUrl == null && name.equalsIgnoreCase("SHA256SUMS")) {
-                            sumsUrl = asset.optString("browser_download_url", null);
+                        String url = asset.optString("browser_download_url", "");
+                        if (url.isEmpty() || !url.toLowerCase(Locale.US).startsWith("https://")) {
+                            // Never install from a plaintext URL, whatever the release says.
+                            continue;
+                        }
+                        String lower = name.toLowerCase(Locale.US);
+                        if (lower.endsWith(".apk")) {
+                            boolean better = apkUrl == null
+                                    || (lower.contains("arena")
+                                    && apkName != null
+                                    && !apkName.toLowerCase(Locale.US).contains("arena"));
+                            if (better) {
+                                apkUrl = url;
+                                apkName = name;
+                                apkSize = asset.optLong("size", 0L);
+                                assetDigest = asset.optString("digest", null);
+                            }
+                        } else if (sumsUrl == null
+                                && (lower.equals("sha256sums") || lower.equals("sha256sums.txt"))) {
+                            sumsUrl = url;
                         }
                     }
                 }
@@ -158,8 +191,11 @@ public class AppUpdateManager {
                 // Prefer the published checksum file; fall back to GitHub's asset digest.
                 String expectedSha256 = null;
                 if (sumsUrl != null) {
-                    String sums = fetchText(sumsUrl);
-                    expectedSha256 = findShaForFile(sums, apkName);
+                    expectedSha256 = findShaForFile(fetchText(sumsUrl), apkName);
+                    if (expectedSha256 == null) {
+                        // One retry: a transient failure here must not block a real update.
+                        expectedSha256 = findShaForFile(fetchText(sumsUrl), apkName);
+                    }
                 }
                 if (expectedSha256 == null && assetDigest != null) {
                     String digest = assetDigest.trim();
@@ -182,7 +218,19 @@ public class AppUpdateManager {
                     if (promptShownThisSession) {
                         return;
                     }
+                    long promptedAt = prefs.getLong(KEY_LAST_PROMPT_TIME, 0L);
+                    String promptedVersion = prefs.getString(KEY_LAST_PROMPT_VERSION, "");
+                    long nowPrompt = System.currentTimeMillis();
+                    if (finalTag.equalsIgnoreCase(promptedVersion)
+                            && nowPrompt - promptedAt < PROMPT_COOLDOWN_MS) {
+                        // "Later" means later, not on every restart.
+                        return;
+                    }
                     promptShownThisSession = true;
+                    prefs.edit()
+                            .putString(KEY_LAST_PROMPT_VERSION, finalTag)
+                            .putLong(KEY_LAST_PROMPT_TIME, nowPrompt)
+                            .apply();
                     showUpdatePrompt(activity, finalTag, finalApkUrl, finalSize, finalSha, notes);
                 });
             } catch (Exception ignored) {
@@ -574,6 +622,8 @@ public class AppUpdateManager {
         if (sumsText == null || fileName == null) {
             return null;
         }
+        String single = null;
+        int checksumCount = 0;
         for (String line : sumsText.split("\\r?\\n")) {
             String trimmed = line.trim();
             if (trimmed.isEmpty()) {
@@ -583,12 +633,16 @@ public class AppUpdateManager {
             if (parts.length != 2 || !parts[0].matches("[0-9a-fA-F]{64}")) {
                 continue;
             }
+            checksumCount++;
             String listedName = parts[1].replaceFirst("^\\*", "").trim();
             if (listedName.equals(fileName) || listedName.endsWith("/" + fileName)) {
                 return parts[0].toLowerCase(Locale.US);
             }
+            single = parts[0].toLowerCase(Locale.US);
         }
-        return null;
+        // A release that ships exactly one APK and one checksum line stays updatable even
+        // if the asset was renamed after the checksum file was generated.
+        return checksumCount == 1 ? single : null;
     }
 
     private static String sanitizeReleaseNotes(String body) {

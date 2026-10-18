@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — Refresh gesture and update discovery
+
+- **Pull-to-refresh is back, without the old reload bug:** the gesture is armed only when the
+  page reports that the document *and* every visible nested scroller are at the top
+  (`VIEWPORT_SHIM_JS` → origin-locked bridge → `canPullToRefresh()`). Scrolling up through a
+  battle no longer reloads the page; pulling down at the top reloads the current URL, and on the
+  reconnect screen the same gesture retries immediately. WebViews without the WebMessage bridge
+  keep the gesture disabled rather than risk an accidental reload.
+- **Updater discovers releases promptly:** checks now run on launch, on resume and after a page
+  load with a 15-minute throttle (5-minute retry after a failure), a 12-hour re-prompt cooldown per
+  version, HTTPS-only asset URLs, and a checksum lookup that still resolves when the APK asset was
+  renamed.
+
 ### Added — Native Web Capability Bridge (no new app UI)
 
 - **Real download pipeline (`DownloadHandler`):** HTTPS downloads are queued with Android's
@@ -71,9 +84,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
-- Audit suite expanded from 36 to 76 checks: native capability bridge, update integrity, release
-  engineering, the shipped APK artifact (SHA-256, zip alignment, v2 signature block), policy
-  disclosures and development-server endpoints.
+- Audit suite expanded from 36 to 81 checks: native capability bridge, update integrity, release
+  engineering, the shipped APK artifact (SHA-256, zip alignment, v2 signature block), page-aware
+  pull-to-refresh gating, updater discovery/throttling, policy disclosures and development-server
+  endpoints.
 
 ---
 

@@ -18,7 +18,7 @@
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg" alt="Platform"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Package-ai.arena.mobile-purple.svg" alt="Package"></a>
   <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/tag/v1.0.3"><img src="https://img.shields.io/badge/Release-v1.0.3_(Verified)-orange.svg" alt="Release"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-76%2F76_Passing-success.svg" alt="Audit Tests"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-81%2F81_Passing-success.svg" alt="Audit Tests"></a>
 </p>
 
 An open-source, high-performance native Android application for **[Arena (arena.ai)](https://arena.ai)** (formerly LMSYS Chatbot Arena). This application provides a full-screen, mobile-optimized experience for crowdsourced LLM evaluation, blind pairwise model battles, multimodal vision benchmarks, live Elo leaderboards, and direct model chat.
@@ -61,8 +61,8 @@ The application is engineered as a clean, single-codebase Android Gradle project
 | :--- | :--- |
 | **Connection Architecture** | **100% Standalone** direct HTTPS to `https://arena.ai` (no companion server, proxy, or LAN required) |
 | **Android Version Support** | **Android 8.0 (API 26) through Android 15 (API 34/35)** |
-| **Scrolling & Gestures** | **Smooth In-App Scrolling**: Pull-to-refresh drag interception is disabled so scrolling up in chat never reloads or wipes conversations |
-| **Self-Updater** | **Verified In-App GitHub Releases Updater**: 24-hour throttled checks, progress and cancel, "skip this version", zero permanent UI clutter |
+| **Scrolling & Gestures** | **Smooth In-App Scrolling + page-aware pull-to-refresh**: the gesture only arms at the true top of the page (nested scrollers included), so scrolling up in chat never reloads or wipes conversations |
+| **Self-Updater** | **Verified In-App GitHub Releases Updater**: checks on launch, on resume and after navigation (15-minute throttle, 5-minute retry after a failure), progress and cancel, "skip this version", zero permanent UI clutter |
 | **File & Image Uploads** | **Multi-File Chooser (`ClipData`)**: Robust MIME type parsing for `.jpg`, `.png`, and images for Vision Arena, plus **direct camera capture** for `<input capture>` |
 | **Downloads** | **Real DownloadManager downloads** with the WebView's session cookies, plus **`blob:` and `data:` exports** written to Downloads |
 | **Web Capability Bridge** | **Native JS dialogs**, **fullscreen HTML5 video**, **before-unload guard**, **`intent://` deep links**, **Android share sheet** via `navigator.share` |
@@ -109,14 +109,16 @@ Once installed on your Android device, the app gives you the full Arena benchmar
 
 ## 🔍 Detailed Feature Deep Dives
 
-### 1. Smooth Scrolling & Gestures (No Accidental Reloads)
+### 1. Smooth Scrolling & Pull-to-Refresh (No Accidental Reloads)
 
-In single-page web applications like Arena.ai, chat messages and battle results are rendered inside nested scrollable containers (`overflow-y: scroll/auto`). Because the Android WebView's root window scroll position remains at `0`, wrapping the view in an active pull-to-refresh gesture previously caused downward drag gestures (scrolling up to view earlier messages) to be mistaken for pull-to-refresh, instantly reloading the page and destroying the active chat and uploaded files.
+Arena.ai renders chats, battles and leaderboards inside nested scrollable containers (`overflow-y: scroll/auto`). The Android WebView's root window therefore stays at scroll position `0` even while a conversation is scrolled deep into history, so a naive pull-to-refresh wrapper mistook ordinary "scroll up through a battle" drags for a refresh, reloading the page and wiping the conversation and uploads.
 
-**How it is fixed in v1.0.2:**
-- `SwipeRefreshLayout`'s touch drag interception is disabled (`swipeRefreshLayout.setEnabled(false)` and `swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) -> true)`).
-- All touch and drag gestures flow directly and smoothly to the WebView.
-- You can freely scroll up to inspect previous conversation turns, code blocks, and model outputs without any accidental reloads.
+The gesture is now page-aware instead of disabled:
+
+- **The page decides.** A small shim (`VIEWPORT_SHIM_JS`, injected only on Arena origins) tracks the root document *and* every visible nested scroller, and posts only state changes over the origin-locked `arenaAndroid` bridge.
+- **The gesture is armed only at the true top.** `swipeRefreshLayout.setOnChildScrollUpCallback(...)` consults `canPullToRefresh()`, which requires `pageAtTop && !pageLoading && getScrollY() <= 0`. Scrolling up inside a chat leaves the gesture disarmed, so the old accidental-reload bug cannot come back.
+- **Pull down at the top to reload.** The gesture reloads the current page (`view.reload()`, preserving the URL and in-page state such as the open chat) and shows the standard spinner until the page finishes. On the reconnect screen the same gesture retries the connection immediately.
+- **Safe fallback.** If the WebView is too old for the WebMessage bridge, the gesture simply stays disabled rather than risking an accidental reload.
 
 ---
 
@@ -125,8 +127,9 @@ In single-page web applications like Arena.ai, chat messages and battle results 
 The application includes an integrated background updater (`AppUpdateManager`) that keeps the app up-to-date with the latest community fixes and releases from GitHub:
 
 - **Zero Additional UI Clutter:** The updater does not add any intrusive toolbars, banners, or floating buttons to the interface. The app remains clean and full-screen.
-- **Automated Background Verification:** When the app loads, a lightweight background thread queries `https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest`.
-- **Semantic Version Checking:** Compares the remote release tag (e.g., `v1.0.2`) against the installed `BuildConfig.VERSION_NAME` (`1.0.1`).
+- **Automated Background Verification:** The updater queries `https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest` on app start, whenever the app returns to the foreground, and after a page finishes loading. Successful checks are throttled to one per 15 minutes (a fraction of GitHub's 60/hour unauthenticated quota); a failed check is retried after 5 minutes instead of being silenced for the whole interval.
+- **Semantic Version Checking:** Compares the remote release tag (e.g., `v1.0.4`) against the installed version name, ignores drafts and pre-releases, and remembers the version the user skipped.
+- **No nagging:** the same release is offered at most once per 12 hours even across restarts, and only once per app process.
 - **Native User Prompt:** When a newer release is detected, the app presents a clean native `AlertDialog`:
   > **Update Available**  
   > *A new version of Arena AI (v1.0.2) is available with fixes and updates.*  
@@ -215,6 +218,7 @@ The app deliberately ships **no navigation bar, toolbar, banner, floating button
 | `<input type="file">` / `capture` | Multi-select file picker plus optional camera capture through the system camera app |
 | `alert()` / `confirm()` / `prompt()` | Native `AlertDialog` equivalents (a default WebView silently drops these) |
 | `beforeunload` | Confirmation dialog so back navigation cannot silently discard a battle |
+| Pull-to-refresh | Arms only when the document *and* every visible nested scroller are at the top; reloads the current page, retries when offline |
 | `<video>` fullscreen | `onShowCustomView` / `onHideCustomView` overlay, with back-button exit |
 | `navigator.share()` | Origin-locked `WebMessage` bridge to the Android share sheet (`addWebMessageListener`) |
 | `blob:` / `data:` download links | Resolved inside the page and written to Downloads via `MediaStore` |
