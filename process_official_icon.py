@@ -1,44 +1,64 @@
+"""Regenerates the Android launcher icons from the official Arena.ai source art.
+
+Usage (from the repository root):
+
+    python3 process_official_icon.py
+
+Set ARENA_RES_DIR to write somewhere other than the Android resource directory
+(used by the automated check).
+"""
+
 import os
+
 from PIL import Image
 
-base_dir = os.path.dirname(__file__)
-source_icon = os.path.join(base_dir, 'official_apple_touch_icon_dark.png')
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SOURCE_ICON = os.path.join(BASE_DIR, "official_apple_touch_icon_dark.png")
+RES_DIR = os.environ.get(
+    "ARENA_RES_DIR",
+    os.path.join(BASE_DIR, "android", "app", "src", "main", "res"),
+)
 
-img = Image.open(source_icon).convert('RGBA')
-
-# Target directories
-public_icons_dir = os.path.join(base_dir, 'public', 'icons')
-apk_res_dir = os.path.join(base_dir, 'arena_standalone_apk', 'res')
-
-os.makedirs(public_icons_dir, exist_ok=True)
-
-# 1. Update public/icons/ for PWA
-for sz in [192, 512]:
-    resized = img.resize((sz, sz), Image.Resampling.LANCZOS)
-    resized.save(os.path.join(public_icons_dir, f'icon-{sz}.png'))
-    
-    # Maskable icon (safe zone padded)
-    maskable = Image.new('RGBA', (sz, sz), (0, 0, 0, 255))
-    inner_sz = int(sz * 0.75)
-    inner_resized = img.resize((inner_sz, inner_sz), Image.Resampling.LANCZOS)
-    offset = (sz - inner_sz) // 2
-    maskable.paste(inner_resized, (offset, offset), inner_resized)
-    maskable.save(os.path.join(public_icons_dir, f'icon-{sz}-maskable.png'))
-
-# 2. Update Android APK mipmap directories
-mipmap_sizes = {
-    'mipmap-mdpi': 48,
-    'mipmap-hdpi': 72,
-    'mipmap-xhdpi': 96,
-    'mipmap-xxhdpi': 144,
-    'mipmap-xxxhdpi': 192
+MIPMAP_SIZES = {
+    "mipmap-mdpi": 48,
+    "mipmap-hdpi": 72,
+    "mipmap-xhdpi": 96,
+    "mipmap-xxhdpi": 144,
+    "mipmap-xxxhdpi": 192,
 }
 
-for folder, sz in mipmap_sizes.items():
-    folder_path = os.path.join(apk_res_dir, folder)
-    if os.path.exists(folder_path):
-        resized = img.resize((sz, sz), Image.Resampling.LANCZOS)
-        resized.save(os.path.join(folder_path, 'ic_launcher.png'))
-        resized.save(os.path.join(folder_path, 'ic_launcher_round.png'))
 
-print("Official arena.ai pillar icons applied successfully!")
+def _round_icon(image):
+    """Applies a circular mask for launchers that do not use adaptive icons."""
+    size = image.size[0]
+    mask = Image.new("L", (size, size), 0)
+    from PIL import ImageDraw
+
+    draw = ImageDraw.Draw(mask)
+    draw.ellipse((0, 0, size - 1, size - 1), fill=255)
+    rounded = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    rounded.paste(image, (0, 0), mask)
+    return rounded
+
+
+def main():
+    if not os.path.isfile(SOURCE_ICON):
+        raise SystemExit(f"Source icon not found: {SOURCE_ICON}")
+
+    image = Image.open(SOURCE_ICON).convert("RGBA")
+    written = 0
+
+    for folder, size in MIPMAP_SIZES.items():
+        target_dir = os.path.join(RES_DIR, folder)
+        os.makedirs(target_dir, exist_ok=True)
+
+        resized = image.resize((size, size), Image.Resampling.LANCZOS)
+        resized.save(os.path.join(target_dir, "ic_launcher.png"))
+        _round_icon(resized).save(os.path.join(target_dir, "ic_launcher_round.png"))
+        written += 2
+
+    print(f"Wrote {written} launcher icons to {RES_DIR}")
+
+
+if __name__ == "__main__":
+    main()

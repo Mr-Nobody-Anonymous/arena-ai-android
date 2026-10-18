@@ -5,11 +5,20 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     name: Build & Test Android APK
     runs-on: ubuntu-latest
+    timeout-minutes: 40
 
     steps:
       - name: Checkout repository
@@ -20,38 +29,83 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
 
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
       - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+        run: chmod +x android/gradlew scripts/verify-apk.sh
 
-      - name: Generate Community Release Keystore
-        working-directory: android/app
+      # The release key lives in repository secrets and is never generated here.
+      # Without it, Gradle falls back to the debug key (fine for CI builds, never
+      # for distribution) and prints a warning.
+      - name: Restore release keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
-          keytool -genkey -v -keystore release.keystore -alias arenaai -keyalg RSA -keysize 2048 -validity 10000 -storepass arena1234 -keypass arena1234 -dname "CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US"
-
-      - name: Run Android Unit Tests
-        working-directory: android
-        run: ./gradlew test --stacktrace
+          if [ -n "${RELEASE_KEYSTORE_BASE64:-}" ]; then
+            printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            {
+              echo "ARENA_RELEASE_STORE_FILE=$RUNNER_TEMP/release.keystore"
+              echo "ARENA_RELEASE_STORE_PASSWORD=$RELEASE_STORE_PASSWORD"
+              echo "ARENA_RELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+              echo "ARENA_RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+            echo "Release keystore restored from secrets."
+          else
+            echo "::warning::RELEASE_KEYSTORE_BASE64 is not configured. The release APK produced by this run is DEBUG-SIGNED and must not be distributed."
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
           node-version: '20'
+          cache: 'npm'
 
-      - name: Install Node Dependencies
-        run: npm ci || npm install
+      - name: Install Node dependencies
+        run: npm ci
 
-      - name: Run Architecture & Security Audit Tests
+      - name: Run Android unit tests
+        working-directory: android
+        run: ./gradlew test --stacktrace
+
+      - name: Run lint (report only)
+        working-directory: android
+        continue-on-error: true
+        run: ./gradlew lintDebug --stacktrace
+
+      - name: Upload lint report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lint-report
+          path: android/app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
+
+      - name: Run architecture & security audit tests
         run: npm test
 
-      - name: Build Release and Debug APKs
+      - name: Audit npm dependencies (report only)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      - name: Build release and debug APKs
         working-directory: android
         run: ./gradlew assembleRelease assembleDebug --stacktrace
 
-      - name: Compute Checksums
+      - name: Verify release APK signatures, alignment and metadata
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk artifacts-check.apk
+          scripts/verify-apk.sh artifacts-check.apk
+
+      - name: Compute checksums
         run: |
           mkdir -p artifacts
           cp android/app/build/outputs/apk/release/app-release.apk artifacts/ArenaAI.apk
@@ -61,8 +115,9 @@ jobs:
           sha256sum ArenaAI-debug.apk >> SHA256SUMS
           cat SHA256SUMS
 
-      - name: Upload Build Artifacts
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v7
         with:
           name: arena-ai-apk
           path: artifacts/
+          if-no-files-found: error

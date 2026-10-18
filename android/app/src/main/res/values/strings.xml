@@ -1,3 +1,61 @@
 <resources>
     <string name="app_name">Arena.ai</string>
+
+    <!-- Web platform availability -->
+    <string name="webview_unavailable">Android System WebView is missing or disabled. Please enable or update it, then reopen Arena.ai.</string>
+    <string name="ssl_error">Secure connection failed. Please try again.</string>
+    <string name="external_link_unavailable">No app is available to open this link.</string>
+    <string name="renderer_restarted">Arena restarted after a display error.</string>
+
+    <!-- File uploads -->
+    <string name="file_chooser_title">Upload File or Image</string>
+    <string name="no_file_manager">No file manager found.</string>
+
+    <!-- JavaScript dialogs -->
+    <string name="dialog_title">Arena.ai</string>
+    <string name="dialog_ok">OK</string>
+    <string name="dialog_cancel">Cancel</string>
+    <string name="leave_page_title">Leave page?</string>
+    <string name="leave_page_message">Changes you made may not be saved.</string>
+    <string name="leave_page_confirm">Leave</string>
+    <string name="leave_page_cancel">Stay</string>
+
+    <!-- Share sheet -->
+    <string name="share_chooser_title">Share via</string>
+
+    <!-- Downloads -->
+    <string name="download_started">Download started</string>
+    <string name="download_failed">Download failed. Please try again.</string>
+    <string name="download_saved">Saved to Downloads</string>
+    <string name="download_in_progress">A download is already in progress.</string>
+    <string name="download_too_large">This file is too large to download.</string>
+    <string name="download_no_manager">No download manager is available.</string>
+    <string name="download_notification_description">Downloading from Arena.ai</string>
+
+    <!-- In-app updates -->
+    <string name="update_available_title">Update Available</string>
+    <string name="update_available_message">A new version of Arena AI (%1$s) is available.</string>
+    <string name="update_size">Size: %1$.2f MB</string>
+    <string name="update_prompt">Would you like to download and install this update?</string>
+    <string name="update_now">Update Now</string>
+    <string name="update_later">Later</string>
+    <string name="update_skip">Skip This Version</string>
+    <string name="update_downloading_title">Downloading Update</string>
+    <string name="update_downloading_preparing">Preparing download…</string>
+    <string name="update_downloading_message">Downloading Arena AI %1$s… %2$d%%</string>
+    <string name="update_cancel">Cancel</string>
+    <string name="update_cancelled">Update cancelled.</string>
+    <string name="update_download_in_progress">An update download is already in progress.</string>
+    <string name="update_download_failed">Download failed. Please check your internet connection.</string>
+    <string name="update_no_space">Not enough free storage to download the update.</string>
+    <string name="update_verification_failed_title">Update Not Verified</string>
+    <string name="update_verification_failed_message">This update could not be verified and was not installed.\n\nReason: %1$s</string>
+    <string name="update_reason_missing_hash">No published checksum was available for the download.</string>
+    <string name="update_reason_hash">The downloaded file does not match the published checksum.</string>
+    <string name="update_reason_package">The downloaded file is not an Arena AI package.</string>
+    <string name="update_reason_version">The downloaded update is older than the installed app.</string>
+    <string name="update_reason_signer">The update is signed with a different key than the installed app.</string>
+    <string name="update_reason_parse">The downloaded file is not a valid APK.</string>
+    <string name="update_install_permission">Please allow Arena AI to install updates, then return to complete.</string>
+    <string name="update_install_failed">Could not open the installer: %1$s</string>
 </resources>

@@ -1,0 +1,32 @@
+Arena.ai Android Client (Unofficial)
+Copyright (c) 2026 Community Contributors
+
+This product is an open-source client application licensed under the Apache License, Version 2.0.
+
+================================================================
+Trademarks & Brand Attribution
+================================================================
+"Arena", "Arena.ai", "LMSYS Chatbot Arena", and the Classical Ionic Pillar mark are
+the trademarks and property of Arena (formerly LMSYS Org) / arena.ai.
+
+This application is an independent, community-developed client and is NOT affiliated with,
+endorsed by, maintained by, or sponsored by Arena or LMSYS Org. All brand assets are used
+solely for nominative and identification purposes.
+
+================================================================
+Third-Party Dependencies & Components
+================================================================
+This software incorporates components governed by open-source licenses:
+
+1. AndroidX Libraries (AppCompat, WebKit, SwipeRefreshLayout, Activity)
+   Copyright (c) The Android Open Source Project
+   Licensed under the Apache License, Version 2.0:
+   http://www.apache.org/licenses/LICENSE-2.0
+
+2. Material Components for Android
+   Copyright (c) Google LLC
+   Licensed under the Apache License, Version 2.0:
+   http://www.apache.org/licenses/LICENSE-2.0
+
+3. JUnit & AndroidX Test Libraries
+   Licensed under the Eclipse Public License 1.0 and Apache License, Version 2.0

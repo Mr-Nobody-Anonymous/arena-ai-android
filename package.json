@@ -1,12 +1,14 @@
 {
   "name": "arena-ai-android",
-  "version": "1.0.3",
-  "description": "Unofficial standalone Android client and development companion gateway for Arena (arena.ai)",
+  "version": "1.0.4",
+  "private": true,
+  "description": "Unofficial standalone Android WebView client for Arena (arena.ai) with native uploads, downloads, camera capture, share sheet and verified in-app updates",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node tests/runner.js",
-    "generate-icons": "python process_official_icon.py"
+    "generate-icons": "python process_official_icon.py",
+    "verify-apk": "bash scripts/verify-apk.sh"
   },
   "repository": {
     "type": "git",

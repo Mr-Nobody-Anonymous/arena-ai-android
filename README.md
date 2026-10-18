@@ -17,8 +17,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg" alt="Platform"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Package-ai.arena.mobile-purple.svg" alt="Package"></a>
-  <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/tag/v1.0.3"><img src="https://img.shields.io/badge/Release-v1.0.3_(Verified)-orange.svg" alt="Release"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-36%2F36_Passing-success.svg" alt="Audit Tests"></a>
+  <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/latest"><img src="https://img.shields.io/badge/Release-Latest-orange.svg" alt="Release"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-81%2F81_Passing-success.svg" alt="Audit Tests"></a>
 </p>
 
 An open-source, high-performance native Android application for **[Arena (arena.ai)](https://arena.ai)** (formerly LMSYS Chatbot Arena). This application provides a full-screen, mobile-optimized experience for crowdsourced LLM evaluation, blind pairwise model battles, multimodal vision benchmarks, live Elo leaderboards, and direct model chat.
@@ -41,6 +41,7 @@ An open-source, high-performance native Android application for **[Arena (arena.
   - [6. Multi-Scheme Cryptographic Signing (v1, v2, v3)](#6-multi-scheme-cryptographic-signing-v1-v2-v3)
   - [7. Client-Side Security & Privacy Hardening](#7-client-side-security--privacy-hardening)
   - [8. Native Android Platform UX](#8-native-android-platform-ux)
+  - [9. Native Web Capability Bridge (No Extra UI)](#9-native-web-capability-bridge-no-extra-ui)
 - [Download & Installation Guide](#download--installation-guide)
   - [Step-by-Step Installation](#step-by-step-installation)
   - [Troubleshooting Common Installation Issues](#troubleshooting-common-installation-issues)
@@ -60,9 +61,13 @@ The application is engineered as a clean, single-codebase Android Gradle project
 | :--- | :--- |
 | **Connection Architecture** | **100% Standalone** direct HTTPS to `https://arena.ai` (no companion server, proxy, or LAN required) |
 | **Android Version Support** | **Android 8.0 (API 26) through Android 15 (API 34/35)** |
-| **Scrolling & Gestures** | **Smooth In-App Scrolling**: Pull-to-refresh drag interception is disabled so scrolling up in chat never reloads or wipes conversations |
-| **Self-Updater** | **Automated In-App GitHub Releases Updater**: Automatically checks for fixes/releases and prompts user to download & update via native dialog with zero permanent UI clutter |
-| **File & Image Uploads** | **Multi-File Chooser (`ClipData`)**: Robust MIME type parsing for `.jpg`, `.png`, and images for Vision Arena |
+| **Scrolling & Gestures** | **Smooth In-App Scrolling + page-aware pull-to-refresh**: the gesture only arms at the true top of the page (nested scrollers included), so scrolling up in chat never reloads or wipes conversations |
+| **Self-Updater** | **Verified In-App GitHub Releases Updater**: checks on launch, on resume and after navigation (15-minute throttle, 5-minute retry after a failure), progress and cancel, "skip this version", zero permanent UI clutter |
+| **File & Image Uploads** | **Multi-File Chooser (`ClipData`)**: Robust MIME type parsing for `.jpg`, `.png`, and images for Vision Arena, plus **direct camera capture** for `<input capture>` |
+| **Downloads** | **Real DownloadManager downloads** with the WebView's session cookies, plus **`blob:` and `data:` exports** written to Downloads |
+| **Web Capability Bridge** | **Native JS dialogs**, **fullscreen HTML5 video**, **before-unload guard**, **`intent://` deep links**, **Android share sheet** via `navigator.share` |
+| **Resilience** | **WebView renderer recovery**, HTTP 5xx / TLS / offline handling with backoff auto-reconnect |
+| **Self-Updater Integrity** | SHA-256 + package name + version code + signer certificate verified **before** the installer opens |
 | **Branding & Iconography** | **Official Classical Ionic Pillar** vector & raster mipmaps across all screen densities (`mdpi`–`xxxhdpi`) |
 | **Offline Resilience** | **5-Second Auto-Reconnect Engine** with AMOLED reconnect screen, live countdown & auto-retry |
 | **Packaging & Signing** | **Full APK Signature Scheme v1, v2 & v3** with 4-byte zip alignment (`zipalign`) |
@@ -104,14 +109,16 @@ Once installed on your Android device, the app gives you the full Arena benchmar
 
 ## 🔍 Detailed Feature Deep Dives
 
-### 1. Smooth Scrolling & Gestures (No Accidental Reloads)
+### 1. Smooth Scrolling & Pull-to-Refresh (No Accidental Reloads)
 
-In single-page web applications like Arena.ai, chat messages and battle results are rendered inside nested scrollable containers (`overflow-y: scroll/auto`). Because the Android WebView's root window scroll position remains at `0`, wrapping the view in an active pull-to-refresh gesture previously caused downward drag gestures (scrolling up to view earlier messages) to be mistaken for pull-to-refresh, instantly reloading the page and destroying the active chat and uploaded files.
+Arena.ai renders chats, battles and leaderboards inside nested scrollable containers (`overflow-y: scroll/auto`). The Android WebView's root window therefore stays at scroll position `0` even while a conversation is scrolled deep into history, so a naive pull-to-refresh wrapper mistook ordinary "scroll up through a battle" drags for a refresh, reloading the page and wiping the conversation and uploads.
 
-**How it is fixed in v1.0.2:**
-- `SwipeRefreshLayout`'s touch drag interception is disabled (`swipeRefreshLayout.setEnabled(false)` and `swipeRefreshLayout.setOnChildScrollUpCallback((parent, child) -> true)`).
-- All touch and drag gestures flow directly and smoothly to the WebView.
-- You can freely scroll up to inspect previous conversation turns, code blocks, and model outputs without any accidental reloads.
+The gesture is now page-aware instead of disabled:
+
+- **The page decides.** A small shim (`VIEWPORT_SHIM_JS`, injected only on Arena origins) tracks the root document *and* every visible nested scroller, and posts only state changes over the origin-locked `arenaAndroid` bridge.
+- **The gesture is armed only at the true top.** `swipeRefreshLayout.setOnChildScrollUpCallback(...)` consults `canPullToRefresh()`, which requires `pageAtTop && !pageLoading && getScrollY() <= 0`. Scrolling up inside a chat leaves the gesture disarmed, so the old accidental-reload bug cannot come back.
+- **Pull down at the top to reload.** The gesture reloads the current page (`view.reload()`, preserving the URL and in-page state such as the open chat) and shows the standard spinner until the page finishes. On the reconnect screen the same gesture retries the connection immediately.
+- **Safe fallback.** If the WebView is too old for the WebMessage bridge, the gesture simply stays disabled rather than risking an accidental reload.
 
 ---
 
@@ -120,8 +127,9 @@ In single-page web applications like Arena.ai, chat messages and battle results 
 The application includes an integrated background updater (`AppUpdateManager`) that keeps the app up-to-date with the latest community fixes and releases from GitHub:
 
 - **Zero Additional UI Clutter:** The updater does not add any intrusive toolbars, banners, or floating buttons to the interface. The app remains clean and full-screen.
-- **Automated Background Verification:** When the app loads, a lightweight background thread queries `https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest`.
-- **Semantic Version Checking:** Compares the remote release tag (e.g., `v1.0.2`) against the installed `BuildConfig.VERSION_NAME` (`1.0.1`).
+- **Automated Background Verification:** The updater queries `https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest` on app start, whenever the app returns to the foreground, and after a page finishes loading. Successful checks are throttled to one per 15 minutes (a fraction of GitHub's 60/hour unauthenticated quota); a failed check is retried after 5 minutes instead of being silenced for the whole interval.
+- **Semantic Version Checking:** Compares the remote release tag (e.g., `v1.0.4`) against the installed version name, ignores drafts and pre-releases, and remembers the version the user skipped.
+- **No nagging:** the same release is offered at most once per 12 hours even across restarts, and only once per app process.
 - **Native User Prompt:** When a newer release is detected, the app presents a clean native `AlertDialog`:
   > **Update Available**  
   > *A new version of Arena AI (v1.0.2) is available with fixes and updates.*  
@@ -140,6 +148,7 @@ The application includes an integrated background updater (`AppUpdateManager`) t
 Uploading images for Arena Vision battles is fully optimized:
 - **Intelligent MIME Parsing:** Parses `accept` attributes, supporting comma-separated formats (`image/jpeg,image/png`), extension formats (`.jpg,.png`), and wildcard image selection (`image/*`).
 - **Multi-File Selection:** Fully supports `ClipData` multi-selection so multiple benchmark images can be uploaded simultaneously.
+- **Camera Capture:** When a page sets `capture` on a file input (for example a Vision prompt photographed on the spot), the chooser offers the system camera alongside the file picker. The capture is written through the app's `FileProvider`.
 - **Cancellation & Failure Safety:** Guarantees that `filePathCallback.onReceiveValue(null)` is called if file selection is cancelled or interrupted, preventing the WebView from locking up.
 - **Persistent State:** Uploaded images and prompts remain intact because scroll gestures no longer trigger accidental page reloads.
 
@@ -172,9 +181,11 @@ The application delivers a first-class, authentic home screen presence matching 
 
 ### 6. Multi-Scheme Cryptographic Signing (v1, v2, v3)
 
-- **Multi-Scheme Signing:** The APK is cryptographically signed using both **APK Signature Scheme v1** (JAR signing) and **APK Signature Scheme v2 & v3** (binary APK Signing Block) using official Android SDK `apksigner`.
-- **Android 11–15 Compatible:** Eliminates the *"App not installed as package appears to be invalid"* error on Android 11 through 15.
-- **4-Byte Zip Alignment (`zipalign`):** All 241 stored archive entries (including uncompressed `resources.arsc`) are strictly aligned on 4-byte boundaries.
+- **Multi-Scheme Signing:** Builds from `android/` enable **APK Signature Scheme v1** (JAR signing), **v2** and **v3** (`v1SigningEnabled`, `v2SigningEnabled`, `enableV3Signing` in `android/app/build.gradle`).
+- **Stable Release Key:** The release keystore is supplied through `ARENA_RELEASE_STORE_FILE` / `ARENA_RELEASE_STORE_PASSWORD` / `ARENA_RELEASE_KEY_ALIAS` / `ARENA_RELEASE_KEY_PASSWORD` (Gradle properties or environment variables) and GitHub Actions secrets. CI never generates a signing key. Without those values the build warns loudly and falls back to the debug key, which must never be distributed.
+- **Android 11–15 Compatible:** v2 and v3 signatures eliminate the *"App not installed as package appears to be invalid"* error on Android 11 through 15.
+- **4-Byte Zip Alignment (`zipalign`):** Every uncompressed archive entry (including `resources.arsc`) is 4-byte aligned. `scripts/verify-apk.sh` re-checks this on every build.
+- **Historical Artifact:** The `ArenaAI.apk` committed at the repository root is the published **v1.0.3** binary (v1 + v2 signatures). Every build produced by `.github/workflows/release.yml` includes v3.
 
 ---
 
@@ -194,7 +205,30 @@ The application delivers a first-class, authentic home screen presence matching 
 - **Predictive Back Navigation:** Migrated from deprecated `onBackPressed()` to AndroidX `OnBackPressedCallback`, preventing navigation glitches on Android 14+ and Android 15/16 (API 34–36).
 - **Session & Cookie Persistence:** Explicit calls to `CookieManager.getInstance().flush()` during `onPageFinished`, `onPause`, `onStop`, and `onDestroy` guarantee login cookies survive process restarts.
 - **Secondary Window & OAuth Support:** `WebChromeClient.onCreateWindow` creates dedicated fullscreen dialog WebViews with third-party cookie support for popup authentication dialogs.
-- **Download Management:** Integrated `DownloadListener` delegates file downloads to the system download manager.
+- **Download Management:** A real `DownloadListener` implementation (see section 9) forwards the WebView's cookies and user agent to Android's `DownloadManager`, resolves `blob:`/`data:` exports, and writes them to Downloads. It is no longer a bare `ACTION_VIEW` hand-off.
+
+---
+
+### 9. Native Web Capability Bridge (No Extra UI)
+
+The app deliberately ships **no navigation bar, toolbar, banner, floating button or menu of its own**. Everything the user sees is the Arena web interface. Native code only fills gaps a bare WebView cannot cover, and it always uses system surfaces (dialogs, share sheet, notification shade, installer) rather than app chrome:
+
+| Web capability | Native behaviour |
+| :--- | :--- |
+| `<input type="file">` / `capture` | Multi-select file picker plus optional camera capture through the system camera app |
+| `alert()` / `confirm()` / `prompt()` | Native `AlertDialog` equivalents (a default WebView silently drops these) |
+| `beforeunload` | Confirmation dialog so back navigation cannot silently discard a battle |
+| Pull-to-refresh | Arms only when the document *and* every visible nested scroller are at the top; reloads the current page, retries when offline |
+| `<video>` fullscreen | `onShowCustomView` / `onHideCustomView` overlay, with back-button exit |
+| `navigator.share()` | Origin-locked `WebMessage` bridge to the Android share sheet (`addWebMessageListener`) |
+| `blob:` / `data:` download links | Resolved inside the page and written to Downloads via `MediaStore` |
+| HTTPS downloads | `DownloadManager` with Arena cookies, progress in the notification shade |
+| `window.open()` | OAuth/SSO hosts stay in a tracked popup; ordinary links open in the main view |
+| `intent://` / `mailto:` / `tel:` | Parsed and opened by the matching system app, with `browser_fallback_url` support |
+| Renderer crash | WebView is destroyed and recreated at the last URL instead of taking the app down |
+| HTTP 5xx / TLS failure / offline | AMOLED reconnect screen with native health probes and backoff |
+
+Nothing in this list adds a permanent control to the Arena UI; all of it is either invisible or a transient system dialog.
 
 ---
 
@@ -204,7 +238,7 @@ The application delivers a first-class, authentic home screen presence matching 
 
 1. **Download the Verified Release APK:**
    Download the release APK directly to your phone:  
-   👉 **[Download ArenaAI.apk (v1.0.2)](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/download/v1.0.2/ArenaAI.apk)**
+   👉 **[Download the latest ArenaAI.apk](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/latest/download/ArenaAI.apk)**
 2. **Allow Installation from Unknown Sources:**
    - Tap the downloaded `ArenaAI.apk` in Chrome or your phone's **Files / Downloads** app.
    - If prompted *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** and turn on **Allow from this source**.
@@ -227,7 +261,9 @@ The application delivers a first-class, authentic home screen presence matching 
 
 ---
 
-## 🔐 Technical Specifications & Verification
+## 🔐 Technical Specifications & Verification (committed v1.0.3 artifact)
+
+> Source on this branch is **v1.0.4 (versionCode 5)**. The table below describes the `ArenaAI.apk` binary committed at the repository root, which is the published v1.0.3 build; CI-produced v1.0.4 APKs are available from the releases page.
 
 | Attribute | Specification |
 | :--- | :--- |
@@ -239,16 +275,31 @@ The application delivers a first-class, authentic home screen presence matching 
 | **Min SDK** | `API 26 (Android 8.0 Oreo)` |
 | **Target SDK** | `API 34 (Android 14)` |
 | **Zip Alignment** | Verified 4-byte aligned (all stored archive entries) |
-| **Signature Schemes** | APK Signature Scheme v1 (JAR), v2 (APK Signature Block), v3 (Android 9+) |
+| **Signature Schemes** | v1.0.3 artifact: v1 (JAR) + v2 (APK Signature Block). Builds from current source: v1 + v2 + v3 |
 
 ### Signing Certificate Fingerprints
 ```text
 Owner / Issuer: CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US
-Algorithm:      2048-bit RSA with SHA384withRSA
-Validity:       October 11, 2026 to February 26, 2054
-SHA-256:        7B:7C:33:2A:78:9C:48:F2:97:95:46:08:11:F6:B7:31:B6:F2:B0:62:29:9C:AD:71:A5:CB:E4:59:EC:E8:2F:49
-SHA-1:          A1:B9:F5:28:82:4A:63:0F:AA:2B:77:B5:F7:AF:2A:BB:BF:D7:01:1D
+Algorithm:      2048-bit RSA with SHA256withRSA
+Validity:       October 12, 2026 to February 27, 2054
+SHA-256:        0A:78:95:E6:52:C7:F1:9C:58:8A:DD:1A:B8:40:B4:C5:EE:32:EA:C1:64:55:89:27:0F:34:65:05:99:D3:F2:DE
+SHA-1:          DA:EA:97:45:CC:72:1D:E6:F4:D1:8A:A8:DA:43:53:0A:E3:86:BA:A4
 ```
+
+### Verify Your Download
+
+```bash
+# 1. SHA-256 must match the value above and the SHA256SUMS asset
+sha256sum ArenaAI.apk        # macOS: shasum -a 256 ArenaAI.apk
+
+# 2. Signing certificate must match the fingerprint above
+apksigner verify --print-certs ArenaAI.apk
+
+# 3. Package, version and permissions
+aapt dump badging ArenaAI.apk | head -20
+```
+
+`scripts/verify-apk.sh` runs all three checks plus 4-byte alignment in one step. Release managers must update the fingerprint table whenever the signing key changes.
 
 ---
 
@@ -259,22 +310,29 @@ To compile the Android client locally:
 - **Android SDK** with Platform API 34 and Build Tools installed
 
 ```bash
-# 1. Clone the repository
+# 1. Clone the repository and install the test harness
 git clone https://github.com/Mr-Nobody-Anonymous/arena-ai-android.git
-cd arena-ai-android/android
+cd arena-ai-android
+npm ci
 
-# 2. Run unit tests
-./gradlew test
+# 2. Run the Android unit tests and the audit suite
+(cd android && ./gradlew test)
+npm test
 
 # 3. Build a debug APK
-./gradlew assembleDebug
+(cd android && ./gradlew assembleDebug)
 
 # 4. Build a signed release APK
-./gradlew assembleRelease
+#    Export the four ARENA_RELEASE_* variables documented in android/app/build.gradle
+#    first. Without them the build warns and falls back to the debug key.
+(cd android && ./gradlew assembleRelease)
+
+# 5. Verify signatures, v1/v2/v3 schemes and 4-byte alignment
+scripts/verify-apk.sh android/app/build/outputs/apk/release/app-release.apk
 ```
 
 ### Automated Compliance Test Suite
-The repository includes an automated 36-point integrity and compliance test suite:
+The repository ships an automated audit suite that covers architecture, security hardening, the native capability bridge, update integrity, release engineering, the shipped APK artifact (checksum, zip alignment, v2 signature block) and the development server endpoints:
 ```bash
 npm test
 ```
@@ -286,33 +344,39 @@ npm test
 ```text
 arena-ai-android/
 ├── .github/
-│   ├── workflows/build.yml     # Automated CI pipeline (Gradle build, test, signing verification)
+│   ├── workflows/build.yml     # CI: unit tests, lint, audit suite, signed build, APK verification
+│   ├── workflows/release.yml   # Tag-triggered: signed release, verification, GitHub Release upload
 │   ├── dependabot.yml          # Automated dependency security tracking
 │   ├── ISSUE_TEMPLATE/         # Bug report & feature request templates
 │   └── PULL_REQUEST_TEMPLATE.md# Pull request contribution template
 ├── android/                    # Single source of truth Android application
 │   ├── app/
-│   │   ├── build.gradle        # App Gradle configuration (ai.arena.mobile, SDK 34, v1/v2 signing)
+│   │   ├── build.gradle        # App config: ai.arena.mobile, SDK 34, v1/v2/v3 signing from env
 │   │   ├── proguard-rules.pro  # R8 / ProGuard optimization & keep rules
 │   │   └── src/
 │   │       ├── main/
-│   │       │   ├── AndroidManifest.xml # Permissions (INTERNET, REQUEST_INSTALL_PACKAGES), FileProvider
+│   │       │   ├── AndroidManifest.xml # Permissions, FileProvider, camera query, backup rules
+│   │       │   ├── assets/             # LICENSE.txt and NOTICE.txt bundled for Apache-2.0
 │   │       │   ├── java/ai/arena/mobile/
-│   │       │   │   ├── MainActivity.java     # WebView lifecycle, scroll handling, file uploads
-│   │       │   │   └── AppUpdateManager.java # Background in-app updater from GitHub releases
+│   │       │   │   ├── MainActivity.java      # WebView shell + native capability bridge
+│   │       │   │   ├── DownloadHandler.java   # DownloadManager, blob: and data: downloads
+│   │       │   │   ├── AppUpdateManager.java  # Throttled, cancellable, verified self-updater
+│   │       │   │   └── UpdateVerifier.java    # SHA-256, package, version and signer checks
 │   │       │   └── res/
-│   │       │       ├── drawable/             # ic_launcher_background, ic_launcher_foreground, monochrome
+│   │       │       ├── drawable/             # ic_launcher_background, foreground, monochrome
 │   │       │       ├── mipmap-anydpi-v26/    # Adaptive icon XML definitions
 │   │       │       ├── mipmap-[m|h|xh|xxh|xxxh]dpi/ # Density raster PNGs
-│   │       │       ├── xml/file_paths.xml    # FileProvider paths for APK installation
-│   │       │       └── values/               # colors.xml, strings.xml, themes.xml
+│   │       │       ├── values/               # strings.xml, themes.xml
+│   │       │       └── xml/                  # file_paths.xml, data_extraction_rules.xml
 │   │       └── test/                         # Unit tests (NavigationPolicyTest, AppUpdateManagerTest)
 │   ├── gradle/wrapper/         # Gradle 8.2 wrapper binaries and configuration
-│   ├── gradle.properties       # AndroidX configuration (android.useAndroidX=true)
+│   ├── gradle.properties       # AndroidX configuration
 │   └── gradlew, gradlew.bat    # Cross-platform Gradle wrapper execution scripts
-├── tests/                      # Automated compliance test suite (36/36 passing)
+├── scripts/verify-apk.sh       # apksigner + zipalign + aapt + sha256 in one step
+├── tests/                      # Automated audit suite (architecture, security, artifact, API)
 ├── server.js                   # Optional local reverse proxy (development inspection only)
-├── ArenaAI.apk                 # Verified, signed release APK binary
+├── process_official_icon.py    # Regenerates launcher icons (requires requirements.txt)
+├── ArenaAI.apk                 # Published v1.0.3 binary (see "Historical Artifact" above)
 ├── SHA256SUMS                  # Cryptographic checksum manifest
 ├── ANALYSIS_REPORT.md          # Technical audit remediation report
 ├── CHANGELOG.md                # Detailed release changelog

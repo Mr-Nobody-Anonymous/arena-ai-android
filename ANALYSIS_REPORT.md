@@ -4,7 +4,7 @@
 **Target Platform:** Android (API 26+ / Android 8.0 Oreo through Android 15+)  
 **Application ID:** `ai.arena.mobile`  
 **Verification Date:** October 12, 2026  
-**Status:** ✅ **100% AUDIT COMPLIANT & PRODUCTION READY (v1.0.2)**
+**Status:** ✅ **AUDIT REMEDIATION COMPLETE — v1.0.3 binary, 2026-10-18 source hardening**
 
 ---
 
@@ -61,20 +61,22 @@ In **v1.0.2**, the application resolves the scroll-up accidental reload issue by
 
 | Artifact | Size | SHA-256 Checksum | Package ID | Version | Signature Schemes |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `ArenaAI.apk` | 2,825,952 bytes | `6aef57e72714dbd8763cacb0aa2d75d929118f13d38dd619cd6426cd82b15db8` | `ai.arena.mobile` | `1.0.3 (versionCode 4)` | v1 (JAR) + v2 (APK Signature Block) + v3 (Android 9+) |
+| `ArenaAI.apk` | 2,825,952 bytes | `6aef57e72714dbd8763cacb0aa2d75d929118f13d38dd619cd6426cd82b15db8` | `ai.arena.mobile` | `1.0.3 (versionCode 4)` | v1 (JAR) + v2 (APK Signature Block) — the historical v1.0.3 binary. Builds from current source add v3. |
 
 ### Signing Certificate Fingerprints
 - **Owner / Signer:** `CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US`
-- **Algorithm:** 2048-bit RSA with SHA384withRSA
-- **Validity:** October 11, 2026 → February 26, 2054
-- **SHA-256 Fingerprint:** `7B:7C:33:2A:78:9C:48:F2:97:95:46:08:11:F6:B7:31:B6:F2:B0:62:29:9C:AD:71:A5:CB:E4:59:EC:E8:2F:49`
-- **SHA-1 Fingerprint:** `A1:B9:F5:28:82:4A:63:0F:AA:2B:77:B5:F7:AF:2A:BB:BF:D7:01:1D`
+- **Algorithm:** 2048-bit RSA with SHA256withRSA
+- **Validity:** October 12, 2026 13:06:22 GMT → February 27, 2054 13:06:22 GMT
+- **SHA-256 Fingerprint:** `0A:78:95:E6:52:C7:F1:9C:58:8A:DD:1A:B8:40:B4:C5:EE:32:EA:C1:64:55:89:27:0F:34:65:05:99:D3:F2:DE`
+- **SHA-1 Fingerprint:** `DA:EA:97:45:CC:72:1D:E6:F4:D1:8A:A8:DA:43:53:0A:E3:86:BA:A4`
+
+> Earlier revisions of this report listed a different fingerprint, `SHA384withRSA`, and different validity dates. Those values did not match the published APK. The values above were extracted from `META-INF/CERT.RSA` with `openssl pkcs7` and `apksigner`.
 
 ---
 
 ## 5. Automated Verification Results
 
-- **Test Suite Status:** 36 / 36 Passing (100% Success Rate)
+- **Test Suite Status:** 81 / 81 Passing (100% Success Rate)
 - **Suite Breakdown:**
   - Suite 1: Local Development Server & Diagnostics (2/2 passing)
   - Suite 2: Android Architecture & Security Hardening (13/13 passing)
@@ -83,3 +85,32 @@ In **v1.0.2**, the application resolves the scroll-up accidental reload issue by
   - Suite 5: Legal & Community Governance (7/7 passing)
   - Suite 6: Legacy Codebase Purge (2/2 passing)
 - **Unit Tests:** `NavigationPolicyTest` and `AppUpdateManagerTest` passing.
+
+---
+
+## 6. 2026-10-18 Follow-Up Remediation
+
+A second audit of the released v1.0.3 binary and its build pipeline found five
+release-blocking problems that the original report did not capture. All are addressed
+in the current source tree.
+
+| Finding | Severity | Remediation |
+| :--- | :---: | :--- |
+| **R1. Ephemeral signing key** — CI ran `keytool -genkey` on every build, so each run produced a different certificate and in-app updates could not install over an existing install. | Critical | Removed key generation from CI. Signing now reads `ARENA_RELEASE_*` variables from protected secrets; `release.yml` refuses to publish without them. |
+| **R2. Documented certificate did not match the APK** — fingerprints, algorithm and validity dates were wrong in four documents. | High | README, this report, `SECURITY.md` and `release_notes.md` now carry the values extracted from the actual v1.0.3 certificate (`0A:78:…`, SHA256withRSA). |
+| **R3. No update integrity verification** — the updater downloaded an APK and launched the installer without checking it. | Critical | Added `UpdateVerifier`: SHA-256 against `SHA256SUMS` (or the GitHub asset digest), package name, version-code floor and signer-certificate equality with the installed app. |
+| **R4. v3 signature claim was false** — the APK had v1 + v2 only. | High | `enableV3Signing true` is now set; `scripts/verify-apk.sh` proves the schemes on every CI run. Documentation distinguishes the historical binary from current builds. |
+| **R5. Permission and network disclosures were wrong** — `REQUEST_INSTALL_PACKAGES` was undocumented and GitHub update traffic was not described. | High | `PRIVACY.md` and `SECURITY.md` now list both permissions, GitHub update checks, third-party cookies and OAuth recipients. |
+
+### Capability additions in the same change
+
+- Downloads: `DownloadManager` with WebView cookies, plus `blob:`/`data:` exports to Downloads.
+- Camera capture for `<input capture>` via the system camera app.
+- Native `alert`/`confirm`/`prompt` and `beforeunload` dialogs.
+- Fullscreen HTML5 video, `intent://` deep links, and share-sheet bridging for `navigator.share`.
+- OAuth popup tracking/teardown, renderer-crash recovery, HTTP 5xx and TLS error handling.
+- Throttled updater (24 h) with skip-version, progress, cancel, free-space checks and atomic file replacement.
+- `LICENSE`/`NOTICE` bundled in the APK; Android 12+ data-extraction rules; predictive-back opt-in.
+
+No native navigation, toolbar, banner or menu was added: every screen still comes from
+the Arena web app, and native code only supplies system-level capabilities.

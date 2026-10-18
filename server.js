@@ -1,7 +1,7 @@
 /**
  * Arena.ai Optional Local Development Reverse Proxy
- * 
- * Note: The native Android mobile client connects directly to https://arena.ai
+ *
+ * Note: the native Android mobile client connects directly to https://arena.ai
  * and does NOT require this local proxy server.
  * This proxy is provided solely as an optional development utility for inspecting
  * web traffic, headers, and upstream responses from a desktop environment.
@@ -15,6 +15,37 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '127.0.0.1';
+const pkg = require('./package.json');
+
+/**
+ * Picks the address a phone on the same network can actually reach.
+ * `0.0.0.0` and `127.0.0.1` are bind addresses, never usable in a QR code.
+ */
+function findLanAddress(bindHost) {
+  const candidates = [];
+  const interfaces = os.networkInterfaces();
+  for (const [name, addresses] of Object.entries(interfaces)) {
+    for (const address of addresses || []) {
+      if (address.family === 'IPv4' && !address.internal) {
+        candidates.push({ name, address: address.address });
+      }
+    }
+  }
+
+  if (bindHost && bindHost !== '0.0.0.0' && bindHost !== '127.0.0.1' && bindHost !== 'localhost') {
+    const exact = candidates.find((candidate) => candidate.address === bindHost);
+    if (exact) {
+      return exact;
+    }
+  }
+
+  const preferred = candidates.find((candidate) => candidate.address.startsWith('192.168.'))
+    || candidates.find((candidate) => candidate.address.startsWith('10.'))
+    || candidates.find((candidate) => /^172\.(1[6-9]|2\d|3[01])\./.test(candidate.address))
+    || candidates[0];
+
+  return preferred || { name: 'Loopback', address: '127.0.0.1' };
+}
 
 // 1. Diagnostics & Health Endpoints
 app.get('/api/health', (req, res) => {
@@ -28,9 +59,18 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.get('/api/version', (req, res) => {
+  res.json({
+    name: pkg.name,
+    version: pkg.version,
+    node: process.version
+  });
+});
+
 app.get('/api/network-info', async (req, res) => {
   try {
-    const mobileUrl = `http://${HOST}:${PORT}`;
+    const primary = findLanAddress(HOST);
+    const mobileUrl = `http://${primary.address}:${PORT}`;
     const qrDataUrl = await QRCode.toDataURL(mobileUrl, {
       errorCorrectionLevel: 'M',
       margin: 2,
@@ -40,9 +80,11 @@ app.get('/api/network-info', async (req, res) => {
 
     res.json({
       port: PORT,
-      primaryIp: HOST,
-      primaryInterface: 'Local',
+      bindHost: HOST,
+      primaryIp: primary.address,
+      primaryInterface: primary.name,
       mobileUrl,
+      reachableFromLan: HOST === '0.0.0.0' || HOST === '::',
       qrDataUrl
     });
   } catch (err) {
@@ -53,7 +95,7 @@ app.get('/api/network-info', async (req, res) => {
 app.get('/api/arena-status', async (req, res) => {
   const targetUrl = 'https://arena.ai/';
   const startTime = Date.now();
-  
+
   try {
     const response = await fetch(targetUrl, {
       method: 'GET',
@@ -121,14 +163,20 @@ app.use(arenaProxy);
 
 // Start Server bound to loopback by default for security
 const server = app.listen(PORT, HOST, () => {
+  const lan = findLanAddress(HOST);
   console.log('================================================================');
   console.log('  ARENA.AI LOCAL DEVELOPMENT PROXY ACTIVE                       ');
   console.log('================================================================');
   console.log(`  Local URL:        http://${HOST}:${PORT}`);
+  console.log(`  LAN URL:          http://${lan.address}:${PORT} (${lan.name})`);
   console.log('  Target:           https://arena.ai');
   console.log('  Note:             The Android APK connects directly to Arena  ');
   console.log('                    and does not require this development proxy.');
+  if (HOST === '127.0.0.1' || HOST === 'localhost') {
+    console.log('  Tip:              Set HOST=0.0.0.0 to make the LAN URL/QR   ');
+    console.log('                    reachable from a phone on the same network.');
+  }
   console.log('================================================================');
 });
 
-module.exports = { app, server };
+module.exports = { app, server, findLanAddress };
