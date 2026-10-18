@@ -10,8 +10,8 @@ This release expands ecosystem authentication (Hugging Face, LMSYS, Microsoft, D
 
 | File | Size | SHA-256 Checksum |
 | :--- | :--- | :--- |
-| **[ArenaAI.apk](ArenaAI.apk)** | 2,825,952 bytes | `6aef57e72714dbd8763cacb0aa2d75d929118f13d38dd619cd6426cd82b15db8` |
-| **[SHA256SUMS](SHA256SUMS)** | 79 bytes | Integrity checksum manifest |
+| **[ArenaAI.apk](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/latest/download/ArenaAI.apk)** | 2,825,952 bytes | `6aef57e72714dbd8763cacb0aa2d75d929118f13d38dd619cd6426cd82b15db8` |
+| **[SHA256SUMS](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/latest/download/SHA256SUMS)** | 78 bytes | Integrity checksum manifest |
 
 ---
 
@@ -46,9 +46,10 @@ This release expands ecosystem authentication (Hugging Face, LMSYS, Microsoft, D
 The release APK is signed with the community release key:
 
 - **Signer:** `CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US`
-- **Certificate Validity:** October 11, 2026 → February 26, 2054
+- **Signature Algorithm:** 2048-bit RSA with SHA256withRSA
+- **Certificate Validity:** October 12, 2026 13:06:22 GMT → February 27, 2054 13:06:22 GMT
 - **SHA-256 Certificate Fingerprint:**  
-  `7B:7C:33:2A:78:9C:48:F2:97:95:46:08:11:F6:B7:31:B6:F2:B0:62:29:9C:AD:71:A5:CB:E4:59:EC:E8:2F:49`
+  `0A:78:95:E6:52:C7:F1:9C:58:8A:DD:1A:B8:40:B4:C5:EE:32:EA:C1:64:55:89:27:0F:34:65:05:99:D3:F2:DE`
 - **SHA-1 Certificate Fingerprint:**  
-  `A1:B9:F5:28:82:4A:63:0F:AA:2B:77:B5:F7:AF:2A:BB:BF:D7:01:1D`
-- **Zip Alignment & Signature Schemes:** 100% verified 4-byte alignment across all stored entries, with full APK Signature Scheme v1, v2, and v3 (Android 11–15 compatible).
+  `DA:EA:97:45:CC:72:1D:E6:F4:D1:8A:A8:DA:43:53:0A:E3:86:BA:A4`
+- **Zip Alignment & Signature Schemes:** 100% verified 4-byte alignment across all stored entries, signed with APK Signature Schemes v1 (JAR) and v2 (APK Signing Block). Builds from the current source additionally enable v3; `scripts/verify-apk.sh` prints the exact schemes for any build.

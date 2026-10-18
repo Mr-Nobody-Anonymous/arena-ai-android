@@ -33,8 +33,10 @@ venv/
 
 # Temporary & generated artifacts
 tests/test-results.json
+artifacts/
 *.log
 *.tmp
+*.part
 
 # OS files
 .DS_Store

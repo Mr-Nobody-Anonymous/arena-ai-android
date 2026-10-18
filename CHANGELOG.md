@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [Unreleased]
+
+### Added — Native Web Capability Bridge (no new app UI)
+
+- **Real download pipeline (`DownloadHandler`):** HTTPS downloads are queued with Android's
+  `DownloadManager`, carrying the WebView's Arena session cookies and user agent, with progress in
+  the notification shade. `blob:` exports are resolved inside the page and written to Downloads
+  through `MediaStore`; `data:` URLs are decoded and saved. Replaces the previous bare
+  `ACTION_VIEW` hand-off that could not download authenticated or blob files.
+- **Camera capture:** `<input type="file" accept="image/*" capture>` now offers the system camera
+  alongside the file picker, with output written through `FileProvider` (new `captures` path).
+- **Native JavaScript dialogs:** `alert()`, `confirm()`, `prompt()` and `beforeunload` are handled
+  with native dialogs. A stock `WebChromeClient` silently drops these, which broke confirmation and
+  "unsaved changes" flows on the site.
+- **Fullscreen HTML5 video:** `onShowCustomView` / `onHideCustomView`, with back-button exit.
+- **Share sheet bridge:** `navigator.share()` / `navigator.canShare()` are shimmed for Arena origins
+  and forwarded to the Android share sheet through an origin-locked `addWebMessageListener` bridge.
+- **`intent://` and external schemes:** deep links are parsed with `Intent.parseUri`, honour
+  `browser_fallback_url`, and open in the matching system app. `mailto:`, `tel:`, `sms:` and
+  `market:` links now work.
+- **OAuth popup lifecycle:** secondary windows are tracked, origin-checked, destroyed on dismiss,
+  rotation or activity teardown, and no longer leak `Dialog`/`WebView` instances. Ordinary
+  `window.open` links return to the main view instead of opening a second full-screen layer.
+- **Resilience:** WebView renderer crashes are recovered by recreating the view at the last URL;
+  main-frame HTTP 5xx, TLS failures and offline errors render the reconnect screen. Retry now uses
+  exponential backoff (5 s → 30 s) and cannot touch a shut-down executor.
+- **Accessibility:** WebView text zoom follows the system font scale.
+
+### Security
+
+- **Verified updates (`UpdateVerifier`):** before the installer opens, the APK must match the
+  published SHA-256, carry the `ai.arena.mobile` package name, not downgrade the version code, and
+  be signed by the same certificate as the installed app. Failed, cancelled or interrupted
+  downloads are deleted.
+- **Stable release signing:** removed the hard-coded `arena1234` keystore password and the
+  `keytool -genkey` step that generated a new key on every CI run. Signing now reads
+  `ARENA_RELEASE_*` variables from GitHub Actions secrets; release builds warn loudly and fall back
+  to the debug key when unset. `enableV3Signing true` added (v1 + v2 + v3).
+- **Correct documentation:** certificate fingerprints, algorithm and validity now match the actual
+  v1.0.3 APK; `REQUEST_INSTALL_PACKAGES`, GitHub update checks, third-party cookies and OAuth
+  recipients are disclosed in `PRIVACY.md` / `SECURITY.md`.
+- **Backup hardening:** Android 12+ `data-extraction-rules.xml` excludes all domains from cloud
+  backup and device transfer; `android:enableOnBackInvokedCallback="true"` opts into predictive back.
+- **Licensing:** `LICENSE` and `NOTICE` are now bundled inside the APK under `assets/`.
+
+### Changed
+
+- **Updater:** checks are throttled to once per 24 hours (and once per process) instead of firing on
+  every page load; drafts and pre-releases are ignored; "Skip This Version" is persisted; release
+  notes are shown; downloads show percentage progress, support cancel, check free space and use an
+  atomic `.part` → `.apk` rename.
+- **CI:** `build.yml` now restores the release keystore from secrets, validates the Gradle wrapper,
+  runs lint and `npm audit` (report-only), verifies the APK with `scripts/verify-apk.sh`, caches
+  Gradle/npm and declares least-privilege permissions and timeouts. New tag-triggered `release.yml`
+  signs, verifies and publishes the APK and `SHA256SUMS` to GitHub Releases.
+- **Tooling:** `gradlew` and `scripts/verify-apk.sh` are committed executable; `package.json` is
+  `private`; `package-lock.json` name/version corrected; `tests/test-results.json` untracked.
+- **Icon script:** now writes to `android/app/src/main/res` (the old path was deleted), adds round
+  icons, and `requirements.txt` pins Pillow.
+- **Dev server:** `/api/network-info` reports a real LAN address for its QR code instead of
+  `127.0.0.1`/`0.0.0.0`, adds `/api/version`, and documents `HOST=0.0.0.0`.
+
+### Tests
+
+- Audit suite expanded from 36 to 76 checks: native capability bridge, update integrity, release
+  engineering, the shipped APK artifact (SHA-256, zip alignment, v2 signature block), policy
+  disclosures and development-server endpoints.
+
+---
+
 ## [1.0.3] - 2026-10-12
 
 ### Added & Enhanced

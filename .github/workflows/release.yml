@@ -1,0 +1,131 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish (for example v1.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build, verify and publish signed APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: release
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Require the protected release keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -z "${RELEASE_KEYSTORE_BASE64:-}" ] || [ -z "${RELEASE_STORE_PASSWORD:-}" ] \
+             || [ -z "${RELEASE_KEY_ALIAS:-}" ] || [ -z "${RELEASE_KEY_PASSWORD:-}" ]; then
+            echo "::error::Release signing secrets are not configured. Refusing to publish a debug-signed APK."
+            exit 1
+          fi
+          printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          {
+            echo "ARENA_RELEASE_STORE_FILE=$RUNNER_TEMP/release.keystore"
+            echo "ARENA_RELEASE_STORE_PASSWORD=$RELEASE_STORE_PASSWORD"
+            echo "ARENA_RELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+            echo "ARENA_RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: Verify tag matches the Gradle version
+        env:
+          TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          GRADLE_VERSION=$(grep -E "versionName \"" android/app/build.gradle | head -1 | sed -E 's/.*versionName "([^"]+)".*/\1/')
+          TAG_VERSION="${TAG_NAME#v}"
+          echo "Gradle version: $GRADLE_VERSION / tag version: $TAG_VERSION"
+          if [ "$GRADLE_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $TAG_NAME does not match versionName $GRADLE_VERSION in android/app/build.gradle."
+            exit 1
+          fi
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Run audit tests
+        run: npm test
+
+      - name: Build signed release APK
+        working-directory: android
+        run: ./gradlew test assembleRelease --stacktrace
+
+      - name: Verify signatures, alignment and metadata
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk artifacts-check.apk
+          chmod +x scripts/verify-apk.sh
+          scripts/verify-apk.sh artifacts-check.apk
+          # Fail loudly if the APK was signed with the CI fallback debug key.
+          if ! unzip -p artifacts-check.apk META-INF/CERT.RSA >/dev/null 2>&1; then
+            echo "::error::No v1 signing certificate found in the release APK."
+            exit 1
+          fi
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/release/app-release.apk artifacts/ArenaAI.apk
+          cd artifacts
+          sha256sum ArenaAI.apk > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" artifacts/ArenaAI.apk artifacts/SHA256SUMS --clobber
+          else
+            gh release create "$TAG_NAME" \
+              artifacts/ArenaAI.apk \
+              artifacts/SHA256SUMS \
+              --title "Arena.ai Android Client $TAG_NAME" \
+              --generate-notes
+          fi
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: arena-ai-release-apk
+          path: artifacts/
+          if-no-files-found: error

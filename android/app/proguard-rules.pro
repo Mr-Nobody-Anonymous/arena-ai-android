@@ -1,9 +1,14 @@
-# Proguard rules for Arena.ai Android client
+# ProGuard / R8 rules for the Arena.ai Android client.
 
-# Preserve WebView client and chrome client callbacks
 -keepattributes *Annotation*
 -keepattributes JavascriptInterface
 
+# Keep anything exposed to JavaScript through a WebView bridge.
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+
+# Preserve WebView callbacks.
 -keepclassmembers class * extends android.webkit.WebView {
     public *;
 }
@@ -16,12 +21,16 @@
     public *;
 }
 
-# Preserve AndroidX Activity / OnBackPressedDispatcher
+# Preserve AndroidX Activity / OnBackPressedDispatcher and AppCompat.
 -keep class androidx.activity.** { *; }
 -keep interface androidx.activity.** { *; }
 -keep class androidx.appcompat.** { *; }
+-keep class androidx.webkit.** { *; }
 
-# Preserve application classes and public entrypoints
+# Application classes and public entry points (including the update verifier,
+# which is driven by the PackageManager).
 -keep public class ai.arena.mobile.** {
     public *;
 }
+-keep class ai.arena.mobile.UpdateVerifier { *; }
+-keep class ai.arena.mobile.DownloadHandler { *; }

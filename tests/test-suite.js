@@ -1,6 +1,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
@@ -74,6 +75,9 @@ async function runAllTests() {
   console.log('\n▶ SUITE 2: Android Architecture & Security Hardening');
   const projectRoot = path.join(__dirname, '..');
   const androidDir = path.join(projectRoot, 'android');
+  const readmeSrc = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+  const privacySrc = fs.readFileSync(path.join(projectRoot, 'PRIVACY.md'), 'utf8');
+  const securitySrc = fs.readFileSync(path.join(projectRoot, 'SECURITY.md'), 'utf8');
   const appDir = path.join(androidDir, 'app');
   const srcDir = path.join(appDir, 'src', 'main');
   const resDir = path.join(srcDir, 'res');
@@ -101,8 +105,14 @@ async function runAllTests() {
   logTest('Android Security', 'Application Backup Disabled (Token protection)',
     manifestSrc.includes('android:allowBackup="false"'));
 
-  logTest('Android Security', 'Minimal Permissions (INTERNET only, ACCESS_NETWORK_STATE removed)',
-    manifestSrc.includes('android.permission.INTERNET') && !manifestSrc.includes('ACCESS_NETWORK_STATE'));
+  logTest('Android Security', 'Explicit minimal permissions (no storage, camera, mic or network-state)',
+    manifestSrc.includes('android.permission.INTERNET')
+    && manifestSrc.includes('android.permission.REQUEST_INSTALL_PACKAGES')
+    && !manifestSrc.includes('ACCESS_NETWORK_STATE')
+    && !manifestSrc.includes('WRITE_EXTERNAL_STORAGE')
+    && !manifestSrc.includes('READ_EXTERNAL_STORAGE')
+    && !manifestSrc.includes('RECORD_AUDIO')
+    && !manifestSrc.includes('android.permission.CAMERA'));
 
   logTest('Android Security', 'Client Geolocation Disabled (Prevents physical location leaks)',
     mainActivitySrc.includes('setGeolocationEnabled(false)'));
@@ -200,6 +210,257 @@ async function runAllTests() {
 
   logTest('Hygiene', 'Decompiled Smali Tree (3,300+ legacy files) Completely Removed', smaliTreeRetired);
   logTest('Hygiene', 'Unused Shell HTML and Stale Data Files Removed', publicStaleRemoved && dataStaleRemoved);
+
+
+  // --- Suite 7: Native capability bridge (no extra app chrome) ---
+  console.log('\n▶ SUITE 7: Native Capability Bridge');
+  const downloadHandlerPath = path.join(srcDir, 'java', 'ai', 'arena', 'mobile', 'DownloadHandler.java');
+  const updateVerifierPath = path.join(srcDir, 'java', 'ai', 'arena', 'mobile', 'UpdateVerifier.java');
+  const downloadSrc = fs.existsSync(downloadHandlerPath) ? fs.readFileSync(downloadHandlerPath, 'utf8') : '';
+  const updateVerifierSrc = fs.existsSync(updateVerifierPath) ? fs.readFileSync(updateVerifierPath, 'utf8') : '';
+
+  logTest('Web Bridge', 'HTTPS downloads use DownloadManager with WebView session cookies',
+    mainActivitySrc.includes('DownloadHandler.handle')
+    && downloadSrc.includes('DownloadManager')
+    && downloadSrc.includes('CookieManager.getInstance().getCookie'));
+
+  logTest('Web Bridge', 'Client-generated blob: and data: downloads are preserved',
+    downloadSrc.includes('startsWith("blob:")') && downloadSrc.includes('startsWith("data:")'));
+
+  logTest('Web Bridge', 'Camera capture offered when the page requests capture',
+    mainActivitySrc.includes('isCaptureEnabled')
+    && mainActivitySrc.includes('ACTION_IMAGE_CAPTURE')
+    && manifestSrc.includes('android.media.action.IMAGE_CAPTURE'));
+
+  logTest('Web Bridge', 'JavaScript alert/confirm/prompt dialogs are handled natively',
+    mainActivitySrc.includes('onJsAlert')
+    && mainActivitySrc.includes('onJsConfirm')
+    && mainActivitySrc.includes('onJsPrompt'));
+
+  logTest('Web Bridge', 'Before-unload confirmation protects unsaved battles',
+    mainActivitySrc.includes('onJsBeforeUnload'));
+
+  logTest('Web Bridge', 'Fullscreen HTML5 media is supported',
+    mainActivitySrc.includes('onShowCustomView') && mainActivitySrc.includes('onHideCustomView'));
+
+  logTest('Web Bridge', 'navigator.share is bridged to the Android share sheet',
+    mainActivitySrc.includes('addWebMessageListener') && mainActivitySrc.includes('navigator.share'));
+
+  logTest('Web Bridge', 'OAuth popups are origin-checked, tracked and always destroyed',
+    mainActivitySrc.includes('popupWindows') && mainActivitySrc.includes('closePopup')
+    && mainActivitySrc.includes('isAuthHost'));
+
+  logTest('Web Bridge', 'intent:// links and browser_fallback_url are honoured',
+    mainActivitySrc.includes('Intent.parseUri') && mainActivitySrc.includes('browser_fallback_url'));
+
+  logTest('Web Bridge', 'Renderer crashes and HTTP/SSL failures are recovered',
+    mainActivitySrc.includes('onRenderProcessGone')
+    && mainActivitySrc.includes('onReceivedHttpError')
+    && mainActivitySrc.includes('onReceivedSslError'));
+
+  // --- Suite 8: Update integrity ---
+  console.log('\n▶ SUITE 8: Verified In-App Updates');
+
+  logTest('Updater', 'Downloaded APK is verified before installation',
+    updateVerifierSrc.includes('sha256')
+    && updateVerifierSrc.includes('getPackageArchiveInfo')
+    && updateVerifierSrc.includes('SIGNER_MISMATCH')
+    && updateManagerSrc.includes('UpdateVerifier.verify'));
+
+  logTest('Updater', 'Checksum comes from SHA256SUMS or the GitHub asset digest',
+    updateManagerSrc.includes('SHA256SUMS') && updateManagerSrc.includes('sha256:'));
+
+  logTest('Updater', 'Drafts and pre-releases are ignored',
+    updateManagerSrc.includes('optBoolean("draft"') && updateManagerSrc.includes('optBoolean("prerelease"'));
+
+  logTest('Updater', 'Update checks are throttled and skippable',
+    updateManagerSrc.includes('CHECK_INTERVAL_MS') && updateManagerSrc.includes('KEY_SKIPPED_VERSION'));
+
+  logTest('Updater', 'Downloads show progress, support cancel and check free space',
+    updateManagerSrc.includes('update_downloading_message')
+    && updateManagerSrc.includes('update_cancel')
+    && updateManagerSrc.includes('StatFs'));
+
+  logTest('Updater', 'Install permission is required before opening the installer',
+    updateManagerSrc.includes('canRequestPackageInstalls'));
+
+  // --- Suite 9: Release engineering ---
+  console.log('\n▶ SUITE 9: Release Engineering');
+
+  let gradlewMode = 0;
+  try {
+    gradlewMode = fs.statSync(path.join(androidDir, 'gradlew')).mode;
+  } catch (err) {
+    gradlewMode = 0;
+  }
+  logTest('Build System', 'gradlew is committed with the executable bit', (gradlewMode & 0o111) !== 0);
+
+  logTest('Build System', 'APK Signature Scheme v1, v2 and v3 are enabled',
+    buildGradleSrc.includes('v1SigningEnabled true')
+    && buildGradleSrc.includes('v2SigningEnabled true')
+    && buildGradleSrc.includes('enableV3Signing true'));
+
+  logTest('Build System', 'No hardcoded keystore passwords remain in the build',
+    !buildGradleSrc.includes('arena1234') && buildGradleSrc.includes('ARENA_RELEASE_STORE_FILE'));
+
+  logTest('Build System', 'Release builds fail loudly rather than silently reusing the debug key',
+    buildGradleSrc.includes('must not be distributed'));
+
+  logTest('Build System', 'APK verification script present and referenced by CI',
+    fs.existsSync(path.join(projectRoot, 'scripts', 'verify-apk.sh'))
+    && ciSrc.includes('verify-apk.sh'));
+
+  const releaseWorkflowPath = path.join(projectRoot, '.github', 'workflows', 'release.yml');
+  const releaseSrc = fs.existsSync(releaseWorkflowPath)
+    ? fs.readFileSync(releaseWorkflowPath, 'utf8') : '';
+  logTest('CI / Automation', 'Tag-triggered signed release workflow exists',
+    releaseSrc.includes("tags:") && releaseSrc.includes('environment: release')
+    && releaseSrc.includes('gh release upload'));
+
+  logTest('CI / Automation', 'Build workflow validates the Gradle wrapper and audits dependencies',
+    ciSrc.includes('wrapper-validation') && ciSrc.includes('npm audit'));
+
+  logTest('Manifest', 'Predictive back is opted in for Android 13+',
+    manifestSrc.includes('enableOnBackInvokedCallback="true"'));
+
+  logTest('Manifest', 'Data extraction rules block cloud backup and device transfer',
+    manifestSrc.includes('dataExtractionRules') && fs.existsSync(path.join(resDir, 'xml', 'data_extraction_rules.xml')));
+
+  logTest('Legal', 'License and NOTICE are bundled inside the APK',
+    fs.existsSync(path.join(srcDir, 'assets', 'LICENSE.txt'))
+    && fs.existsSync(path.join(srcDir, 'assets', 'NOTICE.txt')));
+
+  logTest('Legal', 'Privacy policy and security policy disclose the install permission',
+    privacySrc.includes('REQUEST_INSTALL_PACKAGES') && securitySrc.includes('REQUEST_INSTALL_PACKAGES'));
+
+  logTest('Legal', 'Privacy policy discloses GitHub update checks and third-party cookies',
+    privacySrc.includes('api.github.com') && /third-party cookies/i.test(privacySrc));
+
+  logTest('Docs', 'Download link points at the latest release instead of a pinned version',
+    readmeSrc.includes('releases/latest/download/ArenaAI.apk'));
+
+  logTest('Docs', 'README documents the current native capabilities',
+    readmeSrc.includes('Download') && readmeSrc.includes('camera') && readmeSrc.includes('share'));
+
+  logTest('Metadata', 'package.json and package-lock.json agree on name and version', (() => {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+      const lock = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package-lock.json'), 'utf8'));
+      return pkg.name === lock.name && pkg.version === lock.version
+        && pkg.name === lock.packages[''].name && pkg.version === lock.packages[''].version;
+    } catch (err) {
+      return false;
+    }
+  })());
+
+  logTest('Metadata', 'Gradle versionName matches package.json', (() => {
+    const match = buildGradleSrc.match(/versionName\s+"([^"]+)"/);
+    if (!match) return false;
+    try {
+      const pkg = JSON.parse(fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
+      return match[1] === pkg.version;
+    } catch (err) {
+      return false;
+    }
+  })());
+
+  // --- Suite 10: Shipped APK artifact ---
+  console.log('\n▶ SUITE 10: Shipped APK Artifact');
+
+  const apkPath = path.join(projectRoot, 'ArenaAI.apk');
+  const sumsPath = path.join(projectRoot, 'SHA256SUMS');
+
+  function inspectZip(apkBuffer) {
+    let eocd = -1;
+    const minOffset = Math.max(0, apkBuffer.length - 65558);
+    for (let i = apkBuffer.length - 22; i >= minOffset; i--) {
+      if (apkBuffer.readUInt32LE(i) === 0x06054b50) {
+        eocd = i;
+        break;
+      }
+    }
+    if (eocd < 0) {
+      return null;
+    }
+    const totalEntries = apkBuffer.readUInt16LE(eocd + 10);
+    const cdOffset = apkBuffer.readUInt32LE(eocd + 16);
+    let pointer = cdOffset;
+    let stored = 0;
+    let misaligned = 0;
+    for (let i = 0; i < totalEntries; i++) {
+      if (pointer + 46 > apkBuffer.length || apkBuffer.readUInt32LE(pointer) !== 0x02014b50) {
+        break;
+      }
+      const method = apkBuffer.readUInt16LE(pointer + 10);
+      const nameLength = apkBuffer.readUInt16LE(pointer + 28);
+      const extraLength = apkBuffer.readUInt16LE(pointer + 30);
+      const commentLength = apkBuffer.readUInt16LE(pointer + 32);
+      const localOffset = apkBuffer.readUInt32LE(pointer + 42);
+      if (method === 0 && localOffset + 30 <= apkBuffer.length) {
+        const localNameLength = apkBuffer.readUInt16LE(localOffset + 26);
+        const localExtraLength = apkBuffer.readUInt16LE(localOffset + 28);
+        const dataOffset = localOffset + 30 + localNameLength + localExtraLength;
+        stored++;
+        if (dataOffset % 4 !== 0) {
+          misaligned++;
+        }
+      }
+      pointer += 46 + nameLength + extraLength + commentLength;
+    }
+    return { totalEntries, stored, misaligned };
+  }
+
+  if (fs.existsSync(apkPath)) {
+    const apkBuffer = fs.readFileSync(apkPath);
+    const zipInfo = inspectZip(apkBuffer);
+    const apkHash = crypto.createHash('sha256').update(apkBuffer).digest('hex');
+    const sumsSrc = fs.existsSync(sumsPath) ? fs.readFileSync(sumsPath, 'utf8') : '';
+    const sumsLines = sumsSrc.trim().split(/\r?\n/).filter(Boolean);
+    const sumsMatch = sumsLines.length > 0
+      && sumsLines[0].trim().split(/\s+/)[0].toLowerCase() === apkHash;
+
+    logTest('Artifact', 'Committed APK SHA-256 matches SHA256SUMS', sumsMatch);
+    logTest('Artifact', 'README publishes the same SHA-256 as the committed APK', readmeSrc.includes(apkHash));
+    logTest('Artifact', 'All uncompressed APK entries are 4-byte aligned',
+      zipInfo !== null && zipInfo.stored > 0 && zipInfo.misaligned === 0);
+    logTest('Artifact', 'APK contains an APK Signature Scheme v2 block',
+      apkBuffer.includes(Buffer.from('APK Sig Block 42'))
+      && apkBuffer.includes(Buffer.from([0x1a, 0x87, 0x09, 0x71])));
+    logTest('Artifact', 'APK package is ai.arena.mobile', apkBuffer.includes(Buffer.from('ai.arena.mobile', 'utf16le')));
+  } else {
+    logTest('Artifact', 'Committed APK present', false);
+  }
+
+  // --- Suite 11: Dev server endpoints ---
+  console.log('\n▶ SUITE 11: Development Server Endpoints');
+  try {
+    const info = await request('/api/network-info');
+    const infoJson = JSON.parse(info.body);
+    logTest('Dev Server', 'Network info returns a non-loopback mobile URL',
+      info.statusCode === 200
+      && /^http:\/\/(?!127\.0\.0\.1|0\.0\.0\.0)/.test(infoJson.mobileUrl)
+      && typeof infoJson.qrDataUrl === 'string'
+      && infoJson.qrDataUrl.startsWith('data:image/png;base64,'));
+  } catch (err) {
+    logTest('Dev Server', 'Network info returns a non-loopback mobile URL', false, err.message);
+  }
+
+  try {
+    const version = await request('/api/version');
+    const versionJson = JSON.parse(version.body);
+    logTest('Dev Server', 'Version endpoint mirrors package.json', version.statusCode === 200 && versionJson.version === '1.0.3');
+  } catch (err) {
+    logTest('Dev Server', 'Version endpoint mirrors package.json', false, err.message);
+  }
+
+  try {
+    const arena = await request('/api/arena-status');
+    const arenaJson = JSON.parse(arena.body);
+    logTest('Dev Server', 'Arena status endpoint always returns a structured result',
+      arena.statusCode === 200 && typeof arenaJson.online === 'boolean');
+  } catch (err) {
+    logTest('Dev Server', 'Arena status endpoint always returns a structured result', false, err.message);
+  }
 
   // Write Test Results File
   const testResultsPath = path.join(__dirname, 'test-results.json');
