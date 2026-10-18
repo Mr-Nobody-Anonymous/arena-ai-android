@@ -36,7 +36,7 @@ Legend: **Done** · **Partial** · **Not done** (reason given).
 
 | Check | Result |
 | :--- | :--- |
-| Java compile | All 4 main sources **and** both unit-test sources compile with **0 errors** (ECJ 3.12.1, `-1.8`) against the real `android-34.jar` platform API plus stubs written to the published signatures for every AndroidX type used (`appcompat`, `activity`, `webkit`, `swiperefreshlayout`, `core`, `annotation`, `lifecycle`). No JDK/Android SDK exists in this sandbox, so Gradle itself was **not** run. |
+| Java compile | All 4 main sources **and** both unit-test sources compile with **0 errors** (ECJ 3.12.1, `-1.8`) against the real `android-34.jar` platform API plus stubs written to the published signatures for every AndroidX type used (`appcompat`, `activity`, `webkit`, `swiperefreshlayout`, `core`, `annotation`, `lifecycle`). No JDK/Android SDK exists in this sandbox, so this was the only compile check available locally. GitHub Actions run `39127380211` then built the branch for real: `test`, `lintDebug`, `assembleRelease`, `assembleDebug` and `scripts/verify-apk.sh` all succeeded. |
 | `npm test` | **81 / 81 passed** (11 suites) |
 | Syntax | `node --check` on `server.js` and every file in `tests/`; `py_compile` on `process_official_icon.py`; YAML parse of both workflows and `dependabot.yml` |
 | Icon generator | Re-run end-to-end into a temp directory: 10 PNGs, correct density ladder (48→192 px), RGBA |
