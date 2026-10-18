@@ -7,8 +7,12 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to publish (for example v1.1.0)"
-        required: true
+        description: "Existing tag to publish (for example v1.0.4). Leave empty for a dry run of the current ref."
+        required: false
+      dry_run:
+        description: "Build and verify only — never publish or require the keystore"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -16,6 +20,11 @@ permissions:
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
+
+env:
+  # SHA-256 of the documented release certificate. Publishing an APK signed with any
+  # other key silently breaks every existing install, so the pipeline refuses to do it.
+  EXPECTED_CERT_SHA256: "0A:78:95:E6:52:C7:F1:9C:58:8A:DD:1A:B8:40:B4:C5:EE:32:EA:C1:64:55:89:27:0F:34:65:05:99:D3:F2:DE"
 
 jobs:
   release:
@@ -27,6 +36,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag) || github.ref }}
+          fetch-depth: 1
 
       - name: Set up JDK 17
         uses: actions/setup-java@v6
@@ -42,6 +54,7 @@ jobs:
         uses: gradle/actions/wrapper-validation@v6
 
       - name: Require the protected release keystore
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
         env:
           RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
           RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
@@ -50,7 +63,7 @@ jobs:
         run: |
           if [ -z "${RELEASE_KEYSTORE_BASE64:-}" ] || [ -z "${RELEASE_STORE_PASSWORD:-}" ] \
              || [ -z "${RELEASE_KEY_ALIAS:-}" ] || [ -z "${RELEASE_KEY_PASSWORD:-}" ]; then
-            echo "::error::Release signing secrets are not configured. Refusing to publish a debug-signed APK."
+            echo "::error::Release signing secrets are not configured. Refusing to publish a debug-signed APK. See RELEASE.md."
             exit 1
           fi
           printf '%s' "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
@@ -62,8 +75,9 @@ jobs:
           } >> "$GITHUB_ENV"
 
       - name: Verify tag matches the Gradle version
+        if: ${{ github.event_name == 'push' || inputs.tag != '' }}
         env:
-          TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
+          TAG_NAME: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag) || github.ref_name }}
         run: |
           GRADLE_VERSION=$(grep -E "versionName \"" android/app/build.gradle | head -1 | sed -E 's/.*versionName "([^"]+)".*/\1/')
           TAG_VERSION="${TAG_NAME#v}"
@@ -100,6 +114,19 @@ jobs:
             exit 1
           fi
 
+      - name: Verify the APK uses the documented release certificate
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
+        run: |
+          CERT=$(apksigner verify --print-certs artifacts-check.apk \
+                 | grep -m1 -i "certificate SHA-256 digest" \
+                 | sed -E 's/.*digest:[[:space:]]*//')
+          echo "APK certificate: $CERT"
+          echo "Expected       : $EXPECTED_CERT_SHA256"
+          if [ "$(echo "$CERT" | tr '[:lower:]' '[:upper:]')" != "$(echo "$EXPECTED_CERT_SHA256" | tr '[:lower:]' '[:upper:]')" ]; then
+            echo "::error::The release APK is not signed with the documented key. Existing installs would reject this update. See RELEASE.md → 'If the signing key is lost'."
+            exit 1
+          fi
+
       - name: Prepare release assets
         run: |
           mkdir -p artifacts
@@ -109,12 +136,14 @@ jobs:
           cat SHA256SUMS
 
       - name: Publish GitHub release
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.dry_run) && (github.event_name == 'push' || inputs.tag != '') }}
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
+          TAG_NAME: ${{ (github.event_name == 'workflow_dispatch' && inputs.tag) || github.ref_name }}
         run: |
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             gh release upload "$TAG_NAME" artifacts/ArenaAI.apk artifacts/SHA256SUMS --clobber
+            gh release edit "$TAG_NAME" --notes-file release_notes.md
           else
             gh release create "$TAG_NAME" \
               artifacts/ArenaAI.apk \
@@ -129,3 +158,13 @@ jobs:
           name: arena-ai-release-apk
           path: artifacts/
           if-no-files-found: error
+
+      - name: Dry-run summary
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          {
+            echo "### Dry run — nothing was published"
+            echo ""
+            echo "The APK above was built **without** the release keystore (debug key)."
+            echo "Re-run without \`dry_run\` once the \`release\` environment secrets exist."
+          } >> "$GITHUB_STEP_SUMMARY"

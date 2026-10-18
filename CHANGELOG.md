@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.4] - 2026-10-18
 
+### Changed — Build, SDK and hardening
+
+- **Toolchain brought up to date:** Gradle 8.2 → **8.9**, AGP 8.2.2 → **8.7.3**,
+  `compileSdk`/`targetSdk` 34 → **35** (minSdk stays 26). Android 15's enforced edge-to-edge
+  layout is handled by padding the shell with `systemBars` + `displayCutout` insets, so the
+  web page keeps exactly the usable area it had before.
+- **R8 is enabled for release builds:** `minifyEnabled true` and `shrinkResources true`, with
+  broad keep rules (every public member of `ai.arena.mobile`, WebView callbacks, AndroidX
+  components referenced from the manifest). CI uploads `mapping.txt` for deobfuscation.
+- **Navigation allow-list narrowed:** `google.com` and `live.com` were removed; only
+  `accounts.google.com` and `login.live.com` remain for those providers. Broad consumer
+  domains can no longer render inside the trusted shell.
+
 ### Changed — Refresh gesture and update discovery
 
 - **Pull-to-refresh is back, without the old reload bug:** the gesture is armed only when the
@@ -23,6 +36,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   load with a 15-minute throttle (5-minute retry after a failure), a 12-hour re-prompt cooldown per
   version, HTTPS-only asset URLs, and a checksum lookup that still resolves when the APK asset was
   renamed.
+
+### Added — Release engineering and repository hygiene
+
+- **`RELEASE.md`** documents the whole release contract: the `release` environment secrets,
+  version bump, tag, what CI verifies, post-release checks, key-loss options and rollback.
+- **`scripts/release-check.sh`** fails a release when `versionName`, `package.json`,
+  `package-lock.json`, the `CHANGELOG` heading and `release_notes.md` disagree.
+- **`release.yml` now refuses to publish an APK signed with any key other than the documented
+  one** (`EXPECTED_CERT_SHA256`), and gained a `dry_run` input that builds and verifies without
+  touching the keystore or publishing. Re-publishing also refreshes the release notes.
+- **CodeQL** runs for `java-kotlin` and `javascript-typescript`; `CODEOWNERS`,
+  `.editorconfig`, `.nvmrc`, `CITATION.cff` and issue-template contact links were added.
+- **`start.sh` / `test.sh`** mirror the Windows helpers (and install dependencies first).
+- **`Dockerfile` + `docker-compose.yml`** containerise the optional development proxy.
+- **`SECURITY.md` / `CODE_OF_CONDUCT.md`** now point at a real private reporting channel and
+  document the enforcement ladder.
 
 ### Added — Native Web Capability Bridge (no new app UI)
 
@@ -86,7 +115,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Tests
 
-- Audit suite expanded from 36 to 81 checks: native capability bridge, update integrity, release
+- Audit suite expanded from 36 to 92 checks: native capability bridge, update integrity, release
   engineering, the shipped APK artifact (SHA-256, zip alignment, v2 signature block), page-aware
   pull-to-refresh gating, updater discovery/throttling, policy disclosures and development-server
   endpoints.

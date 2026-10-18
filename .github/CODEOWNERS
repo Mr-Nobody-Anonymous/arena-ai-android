@@ -1,0 +1,7 @@
+# Default owner for everything in the repository.
+* @Mr-Nobody-Anonymous
+
+# Release plumbing and signing decisions need the maintainer.
+/.github/workflows/ @Mr-Nobody-Anonymous
+/android/app/build.gradle @Mr-Nobody-Anonymous
+/SECURITY.md @Mr-Nobody-Anonymous

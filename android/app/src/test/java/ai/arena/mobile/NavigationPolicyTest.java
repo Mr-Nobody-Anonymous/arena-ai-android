@@ -27,6 +27,7 @@ public class NavigationPolicyTest {
         assertTrue(MainActivity.isHostAllowed("login.microsoftonline.com"));
         assertTrue(MainActivity.isHostAllowed("discord.com"));
         assertTrue(MainActivity.isHostAllowed("auth0.com"));
+        assertTrue(MainActivity.isHostAllowed("login.live.com"));
     }
 
     @Test
@@ -35,6 +36,10 @@ public class NavigationPolicyTest {
         assertFalse(MainActivity.isHostAllowed("malicious-site.org"));
         assertFalse(MainActivity.isHostAllowed("arena.ai.evil.com"));
         assertFalse(MainActivity.isHostAllowed("fake-arena.ai.phishing.net"));
+        // Narrowed allow-list: only the OAuth hosts, not the whole consumer product.
+        assertFalse(MainActivity.isHostAllowed("google.com"));
+        assertFalse(MainActivity.isHostAllowed("mail.google.com"));
+        assertFalse(MainActivity.isHostAllowed("live.com"));
     }
 
     @Test

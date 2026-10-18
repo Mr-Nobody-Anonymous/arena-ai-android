@@ -1,0 +1,10 @@
+services:
+  dev-proxy:
+    build: .
+    image: arena-ai-android-dev-proxy:latest
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+    restart: unless-stopped

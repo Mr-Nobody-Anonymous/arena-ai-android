@@ -121,3 +121,13 @@ jobs:
           name: arena-ai-apk
           path: artifacts/
           if-no-files-found: error
+
+      # R8 obfuscates release builds; mapping.txt is what turns a stack trace back into
+      # readable class/method names. Never ship it in the APK, always keep it with the build.
+      - name: Upload R8 mapping file
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: r8-mapping
+          path: android/app/build/outputs/mapping/release/mapping.txt
+          if-no-files-found: warn

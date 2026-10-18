@@ -18,7 +18,7 @@
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg" alt="Platform"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Package-ai.arena.mobile-purple.svg" alt="Package"></a>
   <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/latest"><img src="https://img.shields.io/badge/Release-Latest-orange.svg" alt="Release"></a>
-  <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-81%2F81_Passing-success.svg" alt="Audit Tests"></a>
+  <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-92%2F92_Passing-success.svg" alt="Audit Tests"></a>
 </p>
 
 An open-source, high-performance native Android application for **[Arena (arena.ai)](https://arena.ai)** (formerly LMSYS Chatbot Arena). This application provides a full-screen, mobile-optimized experience for crowdsourced LLM evaluation, blind pairwise model battles, multimodal vision benchmarks, live Elo leaderboards, and direct model chat.
@@ -49,6 +49,7 @@ An open-source, high-performance native Android application for **[Arena (arena.
 - [Building from Source](#building-from-source)
 - [Project Architecture & Directory Structure](#project-architecture--directory-structure)
 - [Authentication Notes & Limitations](#authentication-notes--limitations)
+- [Known Issues](#known-issues)
 - [License & Attributions](#license--attributions)
 
 ---
@@ -60,7 +61,8 @@ The application is engineered as a clean, single-codebase Android Gradle project
 | Capability | Current Implementation Status |
 | :--- | :--- |
 | **Connection Architecture** | **100% Standalone** direct HTTPS to `https://arena.ai` (no companion server, proxy, or LAN required) |
-| **Android Version Support** | **Android 8.0 (API 26) through Android 15 (API 34/35)** |
+| **Android Version Support** | **Android 8.0 (API 26) through Android 15/16** (`minSdk 26`, `compileSdk`/`targetSdk` 35) |
+| **Build Toolchain** | **Gradle 8.9 · AGP 8.7.3 · JDK 17 · R8 shrinking** with mapping files archived by CI |
 | **Scrolling & Gestures** | **Smooth In-App Scrolling + page-aware pull-to-refresh**: the gesture only arms at the true top of the page (nested scrollers included), so scrolling up in chat never reloads or wipes conversations |
 | **Self-Updater** | **Verified In-App GitHub Releases Updater**: checks on launch, on resume and after navigation (15-minute throttle, 5-minute retry after a failure), progress and cancel, "skip this version", zero permanent UI clutter |
 | **File & Image Uploads** | **Multi-File Chooser (`ClipData`)**: Robust MIME type parsing for `.jpg`, `.png`, and images for Vision Arena, plus **direct camera capture** for `<input capture>` |
@@ -196,7 +198,7 @@ The application delivers a first-class, authentic home screen presence matching 
 - **Local File System Protection:** `setAllowFileAccess(false)`, `setAllowContentAccess(false)`, `setAllowFileAccessFromFileURLs(false)`, and `setAllowUniversalAccessFromFileURLs(false)` prevent web content from reading private device files via `file://` or content URIs.
 - **Cleartext Traffic Disabled:** `android:usesCleartextTraffic="false"` strictly forbids non-HTTPS HTTP connections at the Android OS network security layer.
 - **Application Backup Disabled:** `android:allowBackup="false"` prevents extraction of session cookies and tokens via Android Debug Bridge (`adb backup`).
-- **Navigation Security Allow-List:** Embedded WebView navigation is strictly confined to Arena domains (`arena.ai`, `lmarena.ai`) and authorized OAuth identity providers (`accounts.google.com`, `github.com`, `appleid.apple.com`, `auth0.com`). Any external link is automatically handed off to the user's default system browser via `Intent.ACTION_VIEW`.
+- **Navigation Security Allow-List:** Embedded WebView navigation is strictly confined to Arena domains (`arena.ai`, `lmarena.ai`, `lmsys.org`) and the exact OAuth endpoints that need to stay in-app (`accounts.google.com`, `github.com`, `appleid.apple.com`, `login.microsoftonline.com`, `login.live.com`, `discord.com`, `huggingface.co`, `*.auth0.com`). Broad consumer domains such as `google.com` are **not** allowed: a signed-out Google page or an attacker-crafted one would otherwise render inside the trusted shell. Any external link is handed off to the user's default system browser via `Intent.ACTION_VIEW`.
 
 ---
 
@@ -273,7 +275,7 @@ Nothing in this list adds a permanent control to the Arena UI; all of it is eith
 | **Package ID** | `ai.arena.mobile` |
 | **Version** | `1.0.3 (versionCode 4)` |
 | **Min SDK** | `API 26 (Android 8.0 Oreo)` |
-| **Target SDK** | `API 34 (Android 14)` |
+| **Target SDK** | `API 34 (Android 14)` for this v1.0.3 binary; the source on `main` targets `API 35` |
 | **Zip Alignment** | Verified 4-byte aligned (all stored archive entries) |
 | **Signature Schemes** | v1.0.3 artifact: v1 (JAR) + v2 (APK Signature Block). Builds from current source: v1 + v2 + v3 |
 
@@ -306,8 +308,8 @@ aapt dump badging ArenaAI.apk | head -20
 ## 🛠️ Building from Source
 
 To compile the Android client locally:
-- **JDK 17** or newer
-- **Android SDK** with Platform API 34 and Build Tools installed
+- **JDK 17** or newer (AGP 8.7 / Gradle 8.9)
+- **Android SDK** with Platform API 35 and Build Tools installed
 
 ```bash
 # 1. Clone the repository and install the test harness
@@ -317,7 +319,7 @@ npm ci
 
 # 2. Run the Android unit tests and the audit suite
 (cd android && ./gradlew test)
-npm test
+npm test              # or: ./test.sh, which also runs Gradle when a JDK is present
 
 # 3. Build a debug APK
 (cd android && ./gradlew assembleDebug)
@@ -330,6 +332,20 @@ npm test
 # 5. Verify signatures, v1/v2/v3 schemes and 4-byte alignment
 scripts/verify-apk.sh android/app/build/outputs/apk/release/app-release.apk
 ```
+
+### Running the development proxy
+
+```bash
+./start.sh            # or: docker compose up --build
+```
+
+Neither is required by the app: the APK connects straight to `https://arena.ai`.
+
+### Release process
+
+Building, verifying and publishing a signed release is documented step by step in
+[`RELEASE.md`](RELEASE.md), including the one-time `release` environment secrets and the
+pre-flight `./scripts/release-check.sh`.
 
 ### Automated Compliance Test Suite
 The repository ships an automated audit suite that covers architecture, security hardening, the native capability bridge, update integrity, release engineering, the shipped APK artifact (checksum, zip alignment, v2 signature block) and the development server endpoints:
@@ -346,12 +362,14 @@ arena-ai-android/
 ├── .github/
 │   ├── workflows/build.yml     # CI: unit tests, lint, audit suite, signed build, APK verification
 │   ├── workflows/release.yml   # Tag-triggered: signed release, verification, GitHub Release upload
-│   ├── dependabot.yml          # Automated dependency security tracking
-│   ├── ISSUE_TEMPLATE/         # Bug report & feature request templates
+│   ├── workflows/codeql.yml    # CodeQL analysis for Java/Android and JavaScript
+│   ├── CODEOWNERS              # Review ownership
+│   ├── dependabot.yml          # Automated dependency security tracking (npm, gradle, actions)
+│   ├── ISSUE_TEMPLATE/         # Bug report, feature request and contact links
 │   └── PULL_REQUEST_TEMPLATE.md# Pull request contribution template
 ├── android/                    # Single source of truth Android application
 │   ├── app/
-│   │   ├── build.gradle        # App config: ai.arena.mobile, SDK 34, v1/v2/v3 signing from env
+│   │   ├── build.gradle        # App config: ai.arena.mobile, compileSdk/targetSdk 35, R8, v1/v2/v3 signing
 │   │   ├── proguard-rules.pro  # R8 / ProGuard optimization & keep rules
 │   │   └── src/
 │   │       ├── main/
@@ -369,10 +387,14 @@ arena-ai-android/
 │   │       │       ├── values/               # strings.xml, themes.xml
 │   │       │       └── xml/                  # file_paths.xml, data_extraction_rules.xml
 │   │       └── test/                         # Unit tests (NavigationPolicyTest, AppUpdateManagerTest)
-│   ├── gradle/wrapper/         # Gradle 8.2 wrapper binaries and configuration
+│   ├── gradle/wrapper/         # Gradle 8.9 wrapper binaries and configuration
 │   ├── gradle.properties       # AndroidX configuration
 │   └── gradlew, gradlew.bat    # Cross-platform Gradle wrapper execution scripts
 ├── scripts/verify-apk.sh       # apksigner + zipalign + aapt + sha256 in one step
+├── scripts/release-check.sh    # Pre-flight: every version string must agree before tagging
+├── start.sh / test.sh          # Unix equivalents of start.bat / test.bat (npm ci first)
+├── Dockerfile / docker-compose.yml # Containerised development proxy
+├── RELEASE.md                  # Release contract: secrets, tagging, verification, rollback
 ├── tests/                      # Automated audit suite (architecture, security, artifact, API)
 ├── server.js                   # Optional local reverse proxy (development inspection only)
 ├── process_official_icon.py    # Regenerates launcher icons (requires requirements.txt)
@@ -381,7 +403,9 @@ arena-ai-android/
 ├── ANALYSIS_REPORT.md          # Technical audit remediation report
 ├── CHANGELOG.md                # Detailed release changelog
 ├── CONTRIBUTING.md             # Contribution guidelines
-├── CODE_OF_CONDUCT.md          # Contributor covenant
+├── CODE_OF_CONDUCT.md          # Contributor covenant + enforcement contact
+├── CITATION.cff                # Citation metadata
+├── .editorconfig / .nvmrc      # Editor and Node version pins
 ├── LICENSE                     # Apache License 2.0
 ├── NOTICE                      # Legal & trademark notices
 ├── PRIVACY.md                  # Comprehensive privacy statement
@@ -395,6 +419,28 @@ arena-ai-android/
 - **Email & Password Login:** Fully supported and preserved across app sessions via `CookieManager.getInstance().flush()`.
 - **Secondary OAuth Dialogs:** Popup windows spawned by authentication providers are cleanly handled inside modal dialog WebViews via `WebChromeClient.onCreateWindow`.
 - **Google Sign-In Policy:** Google enforces strict server-side policies restricting OAuth from embedded WebViews (`Error 403: disallowed_useragent`). The app strips the `; wv` marker from the WebView User-Agent to optimize compatibility. Users encountering Google OAuth restrictions are advised to log in using Email/Password or complete authentication through their default web browser.
+
+---
+
+## 🧷 Known Issues
+
+Honest limitations of the current build — none of them adds UI, all are tracked.
+
+| Area | Limitation | Workaround |
+| :--- | :--- | :--- |
+| Google sign-in | Google blocks OAuth inside embedded WebViews (`disallowed_useragent`). The UA shim helps but cannot guarantee it | Use email/password, or sign in through the browser |
+| Voice / camera web APIs | No `RECORD_AUDIO` / `CAMERA` permission is declared, so `getUserMedia` prompts are denied. `capture` uploads use the **system camera app** instead | Upload a recorded file, or use the app's file picker |
+| Incoming links | No deep links: an `arena.ai` link from another app opens the browser. Doing this safely requires `assetlinks.json` on `arena.ai`, which this project does not control | Use the in-app share sheet |
+| Pull-to-refresh | Arms only after the page reports it is at the top. If Arena moves its scrollers into shadow DOM or an iframe, the gesture stays disabled (never the reverse) | Pull again after the page settles, or reopen the app |
+| Updates with no checksum | A release without `SHA256SUMS` and without a GitHub asset digest is refused by design (`MISSING_HASH`) | Always publish through `release.yml` |
+| Update checks | At most one per 15 minutes; failures retry after 5 minutes. A shared/rate-limited IP can make checks fail quietly | Wait, or download the APK from the releases page |
+| Large `blob:` exports | In-page export is capped at ~64 MB of base64 (~48 MB file) and 30 s | Use a smaller export |
+| OAuth popups | Tracked and torn down correctly, but some providers still refuse embedded WebViews | Sign in via the browser |
+| Toolchain | `compileSdk`/`targetSdk` 35, minSdk 26. Android 15 edge-to-edge is handled with inset padding; older devices are unaffected | — |
+
+Not verifiable from CI: on-device behaviour of the WebView page itself (camera handoff,
+DownloadManager with live cookies, installer flow). Those paths are exercised manually
+before a release.
 
 ---
 

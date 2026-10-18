@@ -36,12 +36,28 @@ Examples of unacceptable behavior include:
 * Other conduct which could reasonably be considered inappropriate in a
   professional setting
 
+## Enforcement Contact
+
+Report unacceptable behaviour privately to the maintainer,
+[@Mr-Nobody-Anonymous](https://github.com/Mr-Nobody-Anonymous), through a
+[private security advisory](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/security/advisories/new)
+(the only private channel this repository offers) or by opening an issue if the report
+contains nothing sensitive. Reports are acknowledged within 48 hours.
+
 ## Enforcement Responsibilities
 
 Community leaders are responsible for clarifying and enforcing our standards of
 acceptable behavior and will take appropriate and fair corrective action in
 response to any behavior that they deem inappropriate, threatening, offensive,
 or harmful.
+
+## Enforcement Guidelines
+
+1. **Correction** — a private warning explaining the impact and what is expected.
+2. **Warning** — a warning with consequences for continued behaviour, including a
+   temporary limit on interaction.
+3. **Temporary ban** — a temporary ban from any interaction with the project.
+4. **Permanent ban** — a permanent ban from public interaction with the project.
 
 ## Scope
 

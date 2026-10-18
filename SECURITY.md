@@ -12,9 +12,12 @@
 If you discover a security vulnerability in this project, please report it responsibly:
 
 1. **Do not** file a public GitHub issue for sensitive security vulnerabilities.
-2. Send an email to the repository maintainer or use GitHub's private vulnerability reporting feature:
-   - Navigate to the **Security** tab of the repository.
-   - Click **Report a vulnerability**.
+2. Use GitHub's private vulnerability reporting feature — this is the only supported
+   channel and it reaches the maintainer (@Mr-Nobody-Anonymous) directly:
+   - Open <https://github.com/Mr-Nobody-Anonymous/arena-ai-android/security/advisories/new>,
+     or navigate to the **Security** tab of the repository and click **Report a vulnerability**.
+   - Do not open a public issue for a vulnerability, and do not send reports to Arena/LMSYS:
+     they do not maintain this client.
 3. Include details of the vulnerability:
    - Steps to reproduce
    - Potential impact

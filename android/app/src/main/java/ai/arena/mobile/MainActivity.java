@@ -46,6 +46,9 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import androidx.webkit.JavaScriptReplyProxy;
 import androidx.webkit.WebMessageCompat;
@@ -99,24 +102,22 @@ public class MainActivity extends AppCompatActivity {
                     "lmsys.org",
                     "huggingface.co",
                     "accounts.google.com",
-                    "google.com",
                     "github.com",
                     "appleid.apple.com",
                     "auth0.com",
                     "login.microsoftonline.com",
-                    "live.com",
+                    "login.live.com",
                     "discord.com"
             ));
 
     /** Hosts that genuinely need to stay inside a secondary window (OAuth/SSO). */
     private static final List<String> AUTH_HOST_SUFFIXES = Collections.unmodifiableList(Arrays.asList(
             "accounts.google.com",
-            "google.com",
             "github.com",
             "appleid.apple.com",
             "auth0.com",
             "login.microsoftonline.com",
-            "live.com",
+            "login.live.com",
             "discord.com",
             "huggingface.co"
     ));
@@ -339,6 +340,7 @@ public class MainActivity extends AppCompatActivity {
         );
 
         setContentView(rootLayout);
+        applySystemBarInsets();
 
         configureWebView(webView);
 
@@ -781,6 +783,8 @@ public class MainActivity extends AppCompatActivity {
             swipeRefreshLayout.setVisibility(View.GONE);
         }
         if (rootLayout != null) {
+            // A fullscreen video uses the entire surface, insets included.
+            rootLayout.setPadding(0, 0, 0, 0);
             rootLayout.addView(view, new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         }
@@ -794,6 +798,9 @@ public class MainActivity extends AppCompatActivity {
             rootLayout.removeView(fullscreenView);
         }
         fullscreenView = null;
+        if (rootLayout != null) {
+            ViewCompat.requestApplyInsets(rootLayout);
+        }
         if (swipeRefreshLayout != null) {
             swipeRefreshLayout.setVisibility(View.VISIBLE);
         }
@@ -1173,6 +1180,26 @@ public class MainActivity extends AppCompatActivity {
      * native {@code getScrollY()} check is a cheap belt-and-braces guard for pages that
      * scroll the root document.
      */
+    /**
+     * Android 15 (targetSdk 35) draws every app edge-to-edge and ignores the legacy
+     * status/navigation bar colours. Padding the shell with the system-bar and cutout
+     * insets keeps the web page inside exactly the same usable rectangle it had before,
+     * with the bars still painted black by the theme.
+     */
+    private void applySystemBarInsets() {
+        if (rootLayout == null) {
+            return;
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(rootLayout, (view, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars()
+                            | WindowInsetsCompat.Type.displayCutout());
+            view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
+            return windowInsets;
+        });
+        ViewCompat.requestApplyInsets(rootLayout);
+    }
+
     private boolean canPullToRefresh() {
         WebView view = webView;
         if (view == null || destroyed) {
