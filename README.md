@@ -61,7 +61,8 @@ The application is engineered as a clean, single-codebase Android Gradle project
 | Capability | Current Implementation Status |
 | :--- | :--- |
 | **Connection Architecture** | **100% Standalone** direct HTTPS to `https://arena.ai` (no companion server, proxy, or LAN required) |
-| **Android Version Support** | **Android 8.0 (API 26) through Android 15 (API 34/35)** |
+| **Android Version Support** | **Android 8.0 (API 26) through Android 15/16** (`minSdk 26`, `compileSdk`/`targetSdk` 35) |
+| **Build Toolchain** | **Gradle 8.9 · AGP 8.7.3 · JDK 17 · R8 shrinking** with mapping files archived by CI |
 | **Scrolling & Gestures** | **Smooth In-App Scrolling + page-aware pull-to-refresh**: the gesture only arms at the true top of the page (nested scrollers included), so scrolling up in chat never reloads or wipes conversations |
 | **Self-Updater** | **Verified In-App GitHub Releases Updater**: checks on launch, on resume and after navigation (15-minute throttle, 5-minute retry after a failure), progress and cancel, "skip this version", zero permanent UI clutter |
 | **File & Image Uploads** | **Multi-File Chooser (`ClipData`)**: Robust MIME type parsing for `.jpg`, `.png`, and images for Vision Arena, plus **direct camera capture** for `<input capture>` |
@@ -274,7 +275,7 @@ Nothing in this list adds a permanent control to the Arena UI; all of it is eith
 | **Package ID** | `ai.arena.mobile` |
 | **Version** | `1.0.3 (versionCode 4)` |
 | **Min SDK** | `API 26 (Android 8.0 Oreo)` |
-| **Target SDK** | `API 34 (Android 14)` |
+| **Target SDK** | `API 34 (Android 14)` for this v1.0.3 binary; the source on `main` targets `API 35` |
 | **Zip Alignment** | Verified 4-byte aligned (all stored archive entries) |
 | **Signature Schemes** | v1.0.3 artifact: v1 (JAR) + v2 (APK Signature Block). Builds from current source: v1 + v2 + v3 |
 
