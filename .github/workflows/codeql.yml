@@ -44,17 +44,19 @@ jobs:
         uses: android-actions/setup-android@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.language == 'java-kotlin' && 'manual' || 'none' }}
 
+      # --no-build-cache --rerun-tasks matters: a cache hit means javac never runs, the
+      # tracer sees no compilation, and CodeQL fails with "could not process any code".
       - name: Build the Android app for analysis
         if: matrix.language == 'java-kotlin'
         working-directory: android
-        run: ./gradlew assembleDebug --stacktrace
+        run: ./gradlew assembleDebug --stacktrace --no-build-cache --rerun-tasks --no-daemon
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"

@@ -262,7 +262,9 @@ async function runAllTests() {
   logTest('Supply chain', 'CodeQL analysis runs for Java and JavaScript',
     fs.existsSync(path.join(projectRoot, '.github', 'workflows', 'codeql.yml'))
     && fs.readFileSync(path.join(projectRoot, '.github', 'workflows', 'codeql.yml'), 'utf8')
-        .includes('github/codeql-action/analyze@v3'));
+        .includes('github/codeql-action/analyze@v4')
+    && fs.readFileSync(path.join(projectRoot, '.github', 'workflows', 'codeql.yml'), 'utf8')
+        .includes('--rerun-tasks'));
 
   const ciWorkflowPath = path.join(projectRoot, '.github', 'workflows', 'build.yml');
   const ciSrc = fs.existsSync(ciWorkflowPath) ? fs.readFileSync(ciWorkflowPath, 'utf8') : '';
