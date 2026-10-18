@@ -66,7 +66,7 @@ Legend: **Done** · **Partial** · **Not done** (reason given).
 | H7 | **Done** | `DownloadHandler`: `DownloadManager` + cookies/UA, `blob:` resolved by page-side `fetch`/`FileReader`, `data:` decoding, `MediaStore.Downloads` on Q+, external-files fallback, size/time caps. |
 | H8 | **Done** | Popups tracked in `popupWindows`, origin-validated before load, closed on `onDestroy` and when the main page navigates. |
 | H9 | **Done** | `gradlew` and `scripts/verify-apk.sh` committed mode `100755`. |
-| H10 | **Done** | Suite rebuilt: 81 checks in 11 suites, including APK hash/zip-central-directory/v2-block parsing, permission set, signing config, workflow wiring, page-aware pull-to-refresh and doc consistency. |
+| H10 | **Done** | Suite rebuilt: 92 checks in 11 suites, including APK hash/zip-central-directory/v2-block parsing, permission set, signing config, workflow wiring, page-aware pull-to-refresh and doc consistency. |
 | H11 | **Done** | Update traffic to `api.github.com`/`objects.githubusercontent.com`, third-party cookies for SSO, the install permission and recipients are all disclosed. |
 | H12 | **Done** | `android:enableOnBackInvokedCallback="true"` plus `OnBackPressedDispatcher` callback chaining to fullscreen exit → `goBack()` → system back. |
 | H13 | **Partial** | Progress dialog (message updated from the download thread), cancel button that disconnects the stream, `StatFs` free-space check, `.part` → `.apk` rename. No automatic retry button (that would be new chrome); re-opening the dialog retries. |
