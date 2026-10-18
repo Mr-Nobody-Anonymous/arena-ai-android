@@ -478,7 +478,11 @@ async function runAllTests() {
   try {
     const version = await request('/api/version');
     const versionJson = JSON.parse(version.body);
-    logTest('Dev Server', 'Version endpoint mirrors package.json', version.statusCode === 200 && versionJson.version === '1.0.3');
+    const packageVersion = JSON.parse(
+      fs.readFileSync(path.join(projectRoot, 'package.json'), 'utf8')
+    ).version;
+    logTest('Dev Server', 'Version endpoint mirrors package.json',
+      version.statusCode === 200 && versionJson.version === packageVersion);
   } catch (err) {
     logTest('Dev Server', 'Version endpoint mirrors package.json', false, err.message);
   }

@@ -1,6 +1,6 @@
 {
   "name": "arena-ai-android",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "private": true,
   "description": "Unofficial standalone Android WebView client for Arena (arena.ai) with native uploads, downloads, camera capture, share sheet and verified in-app updates",
   "main": "server.js",

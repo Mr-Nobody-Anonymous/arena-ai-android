@@ -17,7 +17,7 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
   <a href="https://developer.android.com"><img src="https://img.shields.io/badge/Platform-Android_8.0+_(API_26+)-brightgreen.svg" alt="Platform"></a>
   <a href="android/"><img src="https://img.shields.io/badge/Package-ai.arena.mobile-purple.svg" alt="Package"></a>
-  <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/tag/v1.0.3"><img src="https://img.shields.io/badge/Release-v1.0.3_(Verified)-orange.svg" alt="Release"></a>
+  <a href="https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/latest"><img src="https://img.shields.io/badge/Release-Latest-orange.svg" alt="Release"></a>
   <a href="tests/"><img src="https://img.shields.io/badge/Audit_Tests-81%2F81_Passing-success.svg" alt="Audit Tests"></a>
 </p>
 
@@ -261,7 +261,9 @@ Nothing in this list adds a permanent control to the Arena UI; all of it is eith
 
 ---
 
-## 🔐 Technical Specifications & Verification
+## 🔐 Technical Specifications & Verification (committed v1.0.3 artifact)
+
+> Source on this branch is **v1.0.4 (versionCode 5)**. The table below describes the `ArenaAI.apk` binary committed at the repository root, which is the published v1.0.3 build; CI-produced v1.0.4 APKs are available from the releases page.
 
 | Attribute | Specification |
 | :--- | :--- |

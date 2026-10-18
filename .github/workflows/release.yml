@@ -120,7 +120,7 @@ jobs:
               artifacts/ArenaAI.apk \
               artifacts/SHA256SUMS \
               --title "Arena.ai Android Client $TAG_NAME" \
-              --generate-notes
+              --notes-file release_notes.md
           fi
 
       - name: Upload build artifacts

@@ -1,6 +1,6 @@
-# 🏛️ Arena.ai Android Client v1.0.3 (Community Release)
+# 🏛️ Arena.ai Android Client v1.0.4 (Community Release)
 
-This release expands ecosystem authentication (Hugging Face, LMSYS, Microsoft, Discord), hardens continuous integration with automated 36-point compliance test execution, and provides the live upgrade target verifying the automated in-app updater.
+This release rebuilds the native shell around the Arena web app. Pull-to-refresh is back without the old reload bug, the self-updater notices a release within minutes instead of a day, and downloads, camera capture, sharing, JavaScript dialogs and renderer crashes stop being dead ends.
 
 > **Disclaimer:** This is an independent, community-driven open-source project and is **not affiliated with, maintained by, endorsed by, or sponsored by Arena or LMSYS Org**.
 
@@ -8,48 +8,61 @@ This release expands ecosystem authentication (Hugging Face, LMSYS, Microsoft, D
 
 ## 📲 Verified Release Downloads
 
-| File | Size | SHA-256 Checksum |
-| :--- | :--- | :--- |
-| **[ArenaAI.apk](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/latest/download/ArenaAI.apk)** | 2,825,952 bytes | `6aef57e72714dbd8763cacb0aa2d75d929118f13d38dd619cd6426cd82b15db8` |
-| **[SHA256SUMS](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/releases/latest/download/SHA256SUMS)** | 78 bytes | Integrity checksum manifest |
+| File | Contents |
+| :--- | :--- |
+| **`ArenaAI.apk`** | Signed release build — `ai.arena.mobile` v1.0.4, versionCode 5 |
+| **`SHA256SUMS`** | `sha256` line for the APK — the in-app updater verifies it before the installer opens |
+
+The SHA-256 of the attached APK is published in `SHA256SUMS` and printed on this release page.
 
 ---
 
-## 🌟 What's New & Fixed in v1.0.3
+## 🌟 What's New & Fixed in v1.0.4
 
-### 🌐 Expanded Ecosystem Authentication & Navigation Allow-List
-- **Hugging Face (`huggingface.co`):** Direct in-app authentication for Hugging Face model evaluations without dropping session state to external browsers.
-- **LMSYS Org (`lmsys.org`, `chat.lmsys.org`):** Smooth browsing of official LMSYS leaderboard rankings and research documentation within the app.
-- **Microsoft & Discord SSO:** Added `login.microsoftonline.com`, `live.com`, and `discord.com` to the secure in-app allow-list.
+### 🔄 Pull-to-refresh that cannot wipe a chat
+- The refresh gesture is armed **only** when the page reports that the document *and* every visible nested scroll container are at the top (`VIEWPORT_SHIM_JS` → origin-locked WebMessage bridge → `canPullToRefresh()`).
+- Pulling down reloads the current URL; on the reconnect screen the same gesture retries immediately.
+- Scrolling up through a battle no longer reloads the page — the case that made v1.0.2 disable the gesture entirely.
+- WebViews without the WebMessage bridge keep the gesture disabled rather than risk an accidental reload.
 
-### 📱 Smooth In-App Scrolling & Gestures (Scroll-Up Reload Bug Fixed)
-- Disabled `SwipeRefreshLayout`'s touch drag interception (`swipeRefreshLayout.setEnabled(false)`). Touch and drag gestures pass directly to the WebView for uninterrupted, smooth scrolling throughout chat conversations, battle comparisons, and leaderboards.
+### ⬆️ An updater that actually catches every release
+- Checks run on launch, on resume and after page loads, with a **15-minute** throttle (at most four requests per hour against GitHub's unauthenticated quota).
+- A failed check retries after **5 minutes** instead of being silenced for a whole interval.
+- The same release is offered at most once per **12 hours**, even across restarts; "Skip this version" persists.
+- Downloads only over HTTPS, retries the checksum fetch once, and still resolves a renamed APK asset against `SHA256SUMS`.
+- Every update is verified before the installer opens: SHA-256 → package name → versionCode → signer certificate.
 
-### 🔄 In-App Automated Self-Updater from GitHub Releases
-- On application launch, checks `https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest` in the background.
-- Prompts users with a native dialog (`Update Now` / `Later`) when a newer release is published.
-- Downloads the APK directly to app cache and triggers installation via `androidx.core.content.FileProvider`.
-- Zero permanent UI clutter on the app interface.
+### 📥 Downloads, uploads and platform integration
+- Real `DownloadManager` downloads carrying the WebView's Arena session cookies; `blob:` exports resolved in-page and written to Downloads; `data:` URLs decoded and saved.
+- Camera capture for `<input capture>`, plus a multi-select file chooser.
+- Native `alert()` / `confirm()` / `prompt()` / `beforeunload` dialogs, HTML5 fullscreen video, the Android share sheet via `navigator.share()`, and `intent://` / `mailto:` / `tel:` handling.
+- Renderer-crash recovery, HTTP 5xx / TLS / offline reconnect screen with 5 s → 30 s backoff, and OAuth popup lifecycle fixes.
 
-### 📁 Enhanced Multi-File & Image Upload Bridge
-- Supports `ClipData` multi-selection so multiple benchmark images can be uploaded simultaneously for Vision battles.
-- Extended MIME matching for comma-separated types, image wildcards (`image/*`), and extension mapping (`.png`, `.jpg`, `.webp`).
-
-### 🛡️ Hardened CI & Repository Governance
-- Added Node.js audit compliance testing step (`npm test`) directly into GitHub Actions CI workflow, enforcing 36 automated checks on every pull request and push.
-- Cleaned and merged all open pull requests, with Dependabot grouping configured for streamlined maintenance.
+### 🔐 Release engineering
+- **v1 + v2 + v3** APK signatures, produced by CI from the protected `release` environment — no key is ever generated by CI.
+- `scripts/verify-apk.sh` checks signatures, 4-byte alignment and package metadata before anything is published.
+- `SHA256SUMS` is generated from the built APK and attached to the release.
 
 ---
 
-## 🔍 Cryptographic Signing & Verification
+## ⬆️ Upgrading from v1.0.3
 
-The release APK is signed with the community release key:
+- The new APK must be signed with the **same release key** as v1.0.3. A rebuilt keystore makes Android refuse the install with `INSTALL_FAILED_UPDATE_INCOMPATIBLE`; the in-app updater will refuse to launch the installer and show a verification error instead.
+- The package id is unchanged (`ai.arena.mobile`), so cookies, logins and settings survive the upgrade.
+- The released v1.0.3 build still checks for updates and will offer this release in-app.
 
-- **Signer:** `CN=Arena Mobile Community, OU=Open Source, O=Community, L=San Francisco, ST=CA, C=US`
-- **Signature Algorithm:** 2048-bit RSA with SHA256withRSA
-- **Certificate Validity:** October 12, 2026 13:06:22 GMT → February 27, 2054 13:06:22 GMT
-- **SHA-256 Certificate Fingerprint:**  
-  `0A:78:95:E6:52:C7:F1:9C:58:8A:DD:1A:B8:40:B4:C5:EE:32:EA:C1:64:55:89:27:0F:34:65:05:99:D3:F2:DE`
-- **SHA-1 Certificate Fingerprint:**  
-  `DA:EA:97:45:CC:72:1D:E6:F4:D1:8A:A8:DA:43:53:0A:E3:86:BA:A4`
-- **Zip Alignment & Signature Schemes:** 100% verified 4-byte alignment across all stored entries, signed with APK Signature Schemes v1 (JAR) and v2 (APK Signing Block). Builds from the current source additionally enable v3; `scripts/verify-apk.sh` prints the exact schemes for any build.
+---
+
+## ✅ Verify your download
+
+```bash
+sha256sum ArenaAI.apk        # compare with SHA256SUMS / this release page
+```
+
+The certificate should be the community signing key documented in `README.md` and `SECURITY.md`.
+
+---
+
+## 📋 Full changelog
+
+See [`CHANGELOG.md`](https://github.com/Mr-Nobody-Anonymous/arena-ai-android/blob/main/CHANGELOG.md) for the complete list of changes and the v1.0.3 history.

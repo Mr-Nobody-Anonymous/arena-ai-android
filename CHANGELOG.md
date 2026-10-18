@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-18
+
 ### Changed — Refresh gesture and update discovery
 
 - **Pull-to-refresh is back, without the old reload bug:** the gesture is armed only when the
