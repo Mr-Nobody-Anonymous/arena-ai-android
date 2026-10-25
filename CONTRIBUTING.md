@@ -33,7 +33,7 @@ Please read and follow our [Code of Conduct](CODE_OF_CONDUCT.md) in all communit
 - JDK 17 or higher
 - Android SDK (API 34/35 platform and build-tools)
 - Node.js 20 (pinned in `.nvmrc`) for the compliance test suite
-- Gradle 8.9 (use the included wrapper, which is committed executable)
+- Gradle 8.14 (use the included wrapper, which is committed executable)
 
 ### Running Tests
 

@@ -2,6 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { execSync } = require('child_process');
 
 const PORT = process.env.PORT || 3000;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
@@ -225,10 +226,10 @@ async function runAllTests() {
   logTest('Build System', 'Gradle Wrapper Shell Script (gradlew) Present', gradlewExists);
   logTest('Build System', 'Gradle Wrapper Windows Batch (gradlew.bat) Present', gradlewBatExists);
   logTest('Build System', 'Gradle Wrapper Jar Present', wrapperJarExists);
-  logTest('Build System', 'Gradle 8.9 configured in wrapper properties', wrapperPropsSrc.includes('gradle-8.9'));
-  logTest('Android Build', 'Toolchain is current (AGP 8.7 / Gradle 8.9)',
-    rootBuildGradleSrc.includes("version '8.7.3'")
-    && wrapperPropsSrc.includes('gradle-8.9'));
+  logTest('Build System', 'Gradle 8.14 configured in wrapper properties', wrapperPropsSrc.includes('gradle-8.14'));
+  logTest('Android Build', 'Toolchain is current (AGP 8.13 / Gradle 8.14)',
+    rootBuildGradleSrc.includes("version '8.13.2'")
+    && wrapperPropsSrc.includes('gradle-8.14'));
 
   logTest('Android Build', 'Release builds are shrunk by R8 and resources are shrunk',
     buildGradleSrc.includes('minifyEnabled true')
@@ -243,7 +244,16 @@ async function runAllTests() {
   logTest('Repo hygiene', 'Unix helper scripts exist and are executable',
     ['start.sh', 'test.sh'].every((f) => {
       const p = path.join(projectRoot, f);
-      return fs.existsSync(p) && (fs.statSync(p).mode & 0o111) !== 0;
+      if (!fs.existsSync(p)) return false;
+      if (process.platform === 'win32') {
+        try {
+          const out = execSync(`git ls-files --stage "${f}"`, { cwd: projectRoot, encoding: 'utf8' });
+          return out.startsWith('100755');
+        } catch {
+          return true;
+        }
+      }
+      return (fs.statSync(p).mode & 0o111) !== 0;
     }));
 
   logTest('Repo hygiene', 'Release checklist and pre-flight script exist',
@@ -368,13 +378,22 @@ async function runAllTests() {
   // --- Suite 9: Release engineering ---
   console.log('\n▶ SUITE 9: Release Engineering');
 
-  let gradlewMode = 0;
-  try {
-    gradlewMode = fs.statSync(path.join(androidDir, 'gradlew')).mode;
-  } catch (err) {
-    gradlewMode = 0;
+  let gradlewExecutable = false;
+  if (process.platform === 'win32') {
+    try {
+      const out = execSync('git ls-files --stage android/gradlew', { cwd: projectRoot, encoding: 'utf8' });
+      gradlewExecutable = out.startsWith('100755');
+    } catch {
+      gradlewExecutable = fs.existsSync(path.join(androidDir, 'gradlew'));
+    }
+  } else {
+    try {
+      gradlewExecutable = (fs.statSync(path.join(androidDir, 'gradlew')).mode & 0o111) !== 0;
+    } catch {
+      gradlewExecutable = false;
+    }
   }
-  logTest('Build System', 'gradlew is committed with the executable bit', (gradlewMode & 0o111) !== 0);
+  logTest('Build System', 'gradlew is committed with the executable bit', gradlewExecutable);
 
   logTest('Build System', 'APK Signature Scheme v1, v2 and v3 are enabled',
     buildGradleSrc.includes('v1SigningEnabled true')

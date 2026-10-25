@@ -18,6 +18,8 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: "gradle-wrapper"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "androidx.core:core"
+        versions: [">= 1.17.0"]
       - dependency-name: "androidx.swiperefreshlayout:swiperefreshlayout"
         versions: [">= 1.2.0"]
       - dependency-name: "org.jetbrains.kotlin:kotlin-stdlib-jdk7"
