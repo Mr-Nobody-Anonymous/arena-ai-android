@@ -137,7 +137,7 @@ dependencies {
     }
 
     implementation 'androidx.appcompat:appcompat:1.8.0'
-    implementation 'androidx.webkit:webkit:1.10.0'
+    implementation 'androidx.webkit:webkit:1.18.0'
     implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
     implementation 'androidx.activity:activity:1.8.2'
     implementation 'androidx.core:core:1.16.0'
