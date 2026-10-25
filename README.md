@@ -62,7 +62,7 @@ The application is engineered as a clean, single-codebase Android Gradle project
 | :--- | :--- |
 | **Connection Architecture** | **100% Standalone** direct HTTPS to `https://arena.ai` (no companion server, proxy, or LAN required) |
 | **Android Version Support** | **Android 8.0 (API 26) through Android 15/16** (`minSdk 26`, `compileSdk`/`targetSdk` 35) |
-| **Build Toolchain** | **Gradle 8.9 · AGP 8.7.3 · JDK 17 · R8 shrinking** with mapping files archived by CI |
+| **Build Toolchain** | **Gradle 8.14 · AGP 8.13.2 · JDK 17 · R8 shrinking** with mapping files archived by CI |
 | **Scrolling & Gestures** | **Smooth In-App Scrolling + page-aware pull-to-refresh**: the gesture only arms at the true top of the page (nested scrollers included), so scrolling up in chat never reloads or wipes conversations |
 | **Self-Updater** | **Verified In-App GitHub Releases Updater**: checks on launch, on resume and after navigation (15-minute throttle, 5-minute retry after a failure), progress and cancel, "skip this version", zero permanent UI clutter |
 | **File & Image Uploads** | **Multi-File Chooser (`ClipData`)**: Robust MIME type parsing for `.jpg`, `.png`, and images for Vision Arena, plus **direct camera capture** for `<input capture>` |
@@ -308,7 +308,7 @@ aapt dump badging ArenaAI.apk | head -20
 ## 🛠️ Building from Source
 
 To compile the Android client locally:
-- **JDK 17** or newer (AGP 8.7 / Gradle 8.9)
+- **JDK 17** or newer (AGP 8.13 / Gradle 8.14)
 - **Android SDK** with Platform API 35 and Build Tools installed
 
 ```bash
@@ -387,7 +387,7 @@ arena-ai-android/
 │   │       │       ├── values/               # strings.xml, themes.xml
 │   │       │       └── xml/                  # file_paths.xml, data_extraction_rules.xml
 │   │       └── test/                         # Unit tests (NavigationPolicyTest, AppUpdateManagerTest)
-│   ├── gradle/wrapper/         # Gradle 8.9 wrapper binaries and configuration
+│   ├── gradle/wrapper/         # Gradle 8.14 wrapper binaries and configuration
 │   ├── gradle.properties       # AndroidX configuration
 │   └── gradlew, gradlew.bat    # Cross-platform Gradle wrapper execution scripts
 ├── scripts/verify-apk.sh       # apksigner + zipalign + aapt + sha256 in one step

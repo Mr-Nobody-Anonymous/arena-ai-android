@@ -17,12 +17,9 @@ async function main() {
       console.log('✨ All tests passed flawlessly! System fully verified.');
     }
 
+    process.exitCode = exitCode;
     if (server && server.close) {
-      server.close(() => {
-        process.exit(exitCode);
-      });
-    } else {
-      process.exit(exitCode);
+      server.close();
     }
   } catch (err) {
     console.error('Fatal test error:', err);
