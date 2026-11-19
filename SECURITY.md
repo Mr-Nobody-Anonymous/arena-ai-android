@@ -26,7 +26,7 @@ If you discover a security vulnerability in this project, please report it respo
 
 ## Security Architecture & Best Practices
 
-- **Minimal, Explicit Permissions:** The app declares exactly `android.permission.INTERNET` and `android.permission.REQUEST_INSTALL_PACKAGES` (self-updates only). No location, camera, audio, or storage permissions are declared. Camera capture is performed by the user's camera app and returned through a single-use `FileProvider` URI.
+- **Minimal, Explicit Permissions:** The app directly declares `android.permission.INTERNET` and `android.permission.REQUEST_INSTALL_PACKAGES` (self-updates only). AndroidX WorkManager adds `ACCESS_NETWORK_STATE`, `RECEIVE_BOOT_COMPLETED` and `WAKE_LOCK` for the daily network-constrained check. No location, camera, audio or storage permissions are used. Camera capture is performed by the user's camera app and returned through a single-use `FileProvider` URI.
 - **Backup Disabled:** `android:allowBackup="false"` is enforced to protect private authentication tokens and cookies from unauthenticated device extraction via `adb backup`.
 - **Cleartext Traffic Disabled:** `android:usesCleartextTraffic="false"` blocks all non-HTTPS network requests at the OS level.
 - **Local File Scheme Restrictions:** `setAllowFileAccess(false)`, `setAllowContentAccess(false)`, `setAllowFileAccessFromFileURLs(false)`, and `setAllowUniversalAccessFromFileURLs(false)` prevent web content from probing the device file system.

@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed — Responsiveness and update reliability
+
+- Removed synchronous `CookieManager.flush()` calls from every WebView page completion and
+  resume; cookies are flushed once on pause instead of repeatedly blocking the UI thread.
+- Optimized the pull-to-refresh viewport shim: removed the full-document scan, made scroll
+  listeners passive, and rate-limited bridge updates to reduce chat-scroll jank.
+- Prevented legacy WebView subresource failures (for example an image or script) from
+  replacing the entire Arena page with the offline screen.
+- Added a daily network-constrained WorkManager release check that survives process death and
+  device reboot. GitHub ETags reduce needless API response bodies; updates download and pass
+  SHA-256, package, version-code and signing-certificate verification before being marked ready.
+  Opening the app launches Android's installer, which still requires the user's confirmation.
+- Fixed release-asset redirect handling and signer verification for current APK signing keys.
+
+### Changed — Lower memory and storage use for background updates
+
+- The daily check now runs synchronously on WorkManager's own worker thread; the extra
+  executor thread, the completion latch and the retained callback are gone.
+- The APK is streamed straight to the private cache through a single 16 KiB buffer and
+  hashed in the same pass, so it is never held in RAM and is not re-read after download.
+- Background downloads skip when free space is insufficient, and stale `.part`/APK files
+  (including a pending update older than seven days) are pruned before each download.
+- Release JSON / `SHA256SUMS` responses are capped at 256 KiB so a misbehaving endpoint
+  cannot grow a background job's heap.
+- The WebView renderer keeps normal priority while visible and is releasable by Android
+  once Arena is in the background.
+
 ## [1.0.4] - 2026-10-18
 
 ### Changed — Build, SDK and hardening
