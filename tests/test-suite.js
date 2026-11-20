@@ -168,10 +168,45 @@ async function runAllTests() {
   logTest('Android UX', 'In-App GitHub Self-Updater & Version Checker Integrated',
     fs.existsSync(updateManagerPath) && updateManagerSrc.includes('checkForUpdates') && updateManagerSrc.includes('isNewerVersion') && mainActivitySrc.includes('AppUpdateManager.checkForUpdates'));
 
-  logTest('Android UX', 'Updater checks on launch, resume and navigation (15-minute throttle)',
-    updateManagerSrc.includes('CHECK_INTERVAL_MS = 15L * 60L * 1000L')
+  const updateSchedulerPath = path.join(srcDir, 'java', 'ai', 'arena', 'mobile', 'UpdateScheduler.java');
+  const updateSchedulerSrc = fs.existsSync(updateSchedulerPath) ? fs.readFileSync(updateSchedulerPath, 'utf8') : '';
+  const updateWorkerPath = path.join(srcDir, 'java', 'ai', 'arena', 'mobile', 'UpdateWorker.java');
+  const updateWorkerSrc = fs.existsSync(updateWorkerPath) ? fs.readFileSync(updateWorkerPath, 'utf8') : '';
+  const gradleSrc = fs.readFileSync(path.join(projectRoot, 'android/app/build.gradle'), 'utf8');
+
+  logTest('Android UX', 'Updater checks on launch, resume and navigation (6-hour foreground throttle)',
+    updateManagerSrc.includes('CHECK_INTERVAL_MS = 6L * 60L * 60L * 1000L')
     && updateManagerSrc.includes('FAILURE_RETRY_MS')
     && mainActivitySrc.includes('AppUpdateManager.checkForUpdates(this);'));
+
+  logTest('Android UX', 'WorkManager schedules a network-constrained daily background release check',
+    updateSchedulerSrc.includes('24, TimeUnit.HOURS')
+    && updateSchedulerSrc.includes('enqueueUniquePeriodicWork')
+    && updateSchedulerSrc.includes('NetworkType.CONNECTED')
+    && updateWorkerSrc.includes('checkForUpdatesInBackground(')
+    && gradleSrc.includes('androidx.work:work-runtime'));
+
+  const backgroundCheckMatch = updateManagerSrc.match(
+    /static boolean checkForUpdatesInBackground\(Context context\) \{[\s\S]*?\n    \}/);
+  const backgroundCheckSrc = backgroundCheckMatch ? backgroundCheckMatch[0] : '';
+  logTest('Android UX', 'Background updater keeps RAM flat (no latch, no in-memory APK)',
+    backgroundCheckSrc.length > 0
+    && !updateWorkerSrc.includes('CountDownLatch')
+    && !updateManagerSrc.includes('CountDownLatch')
+    && !updateManagerSrc.includes('readAllBytes')
+    && updateManagerSrc.includes('new byte[16 * 1024]')
+    && backgroundCheckSrc.includes('getApplicationContext()'));
+
+  logTest('Android UX', 'Background download is space-checked, pruned and hashed in one pass',
+    updateManagerSrc.includes('pruneStaleDownloads')
+    && updateManagerSrc.includes('getAvailableBytes()')
+    && updateManagerSrc.includes('UpdateVerifier.verify(context, finalFile, expectedSha256, streamedSha)')
+    && fs.readFileSync(path.join(srcDir, 'java', 'ai', 'arena', 'mobile', 'UpdateVerifier.java'), 'utf8').includes('String knownSha256')
+    && updateManagerSrc.includes('MAX_TEXT_RESPONSE_CHARS'));
+
+  logTest('Android UX', 'Hidden WebView may be reclaimed by Android under memory pressure',
+    mainActivitySrc.includes('setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_BOUND, true)')
+    && !mainActivitySrc.includes('RENDERER_PRIORITY_IMPORTANT'));
 
   logTest('Android UX', 'Updater does not nag and recovers from failed checks',
     updateManagerSrc.includes('KEY_LAST_CHECK_OK')

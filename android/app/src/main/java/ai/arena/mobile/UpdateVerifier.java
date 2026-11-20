@@ -67,6 +67,16 @@ final class UpdateVerifier {
     }
 
     static Result verify(Context context, File apkFile, String expectedSha256) {
+        return verify(context, apkFile, expectedSha256, null);
+    }
+
+    /**
+     * Verifies an APK whose SHA-256 was already computed while it was streamed to disk.
+     * Passing {@code knownSha256} avoids a second full read of the file (an APK is tens of
+     * megabytes; re-reading it doubles both I/O time and peak page-cache pressure).
+     */
+    static Result verify(Context context, File apkFile, String expectedSha256,
+                         String knownSha256) {
         if (apkFile == null || !apkFile.exists() || apkFile.length() == 0) {
             return new Result(Reason.PARSE_ERROR, "empty file");
         }
@@ -74,7 +84,10 @@ final class UpdateVerifier {
             return new Result(Reason.MISSING_HASH);
         }
 
-        String actualSha256 = sha256(apkFile);
+        String actualSha256 = knownSha256;
+        if (actualSha256 == null || actualSha256.isEmpty()) {
+            actualSha256 = sha256(apkFile);
+        }
         if (actualSha256 == null) {
             return new Result(Reason.HASH_MISMATCH, "unreadable file");
         }
@@ -175,9 +188,10 @@ final class UpdateVerifier {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             SigningInfo signingInfo = info.signingInfo;
             if (signingInfo != null) {
-                signatures = signingInfo.hasMultipleSigners()
-                        ? signingInfo.getApkContentsSigners()
-                        : signingInfo.getSigningCertificateHistory();
+                // Compare only the current signers. getSigningCertificateHistory() also
+                // returns retired keys, so comparing histories would reject a legitimate
+                // update after a key rotation even though the current signer matches.
+                signatures = signingInfo.getApkContentsSigners();
             }
         } else {
             signatures = info.signatures;

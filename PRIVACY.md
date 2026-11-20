@@ -27,10 +27,11 @@ The application functions as a dedicated, standalone browser interface connectin
 
 The self-updater is the only non-Arena network traffic the app initiates:
 
-- At most once every 24 hours (and only once per app session), the app requests `https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest`. GitHub receives your public IP address, an `ArenaAI-Mobile-Client` user agent and the request timestamp. No Arena cookies, account details or device identifiers are sent.
-- If a newer release exists, the app may also fetch the release's `SHA256SUMS` asset to obtain the expected checksum.
-- The APK is downloaded only after you tap **Update Now**. It is downloaded directly from GitHub (or its release-asset CDN), written to the app's private cache, verified against the published SHA-256 and the installed app's signing certificate, and then handed to Android's package installer.
-- **Skip This Version** is stored locally and suppresses that prompt until a different version is published.
+- A WorkManager job checks `https://api.github.com/repos/Mr-Nobody-Anonymous/arena-ai-android/releases/latest` about once every 24 hours when network connectivity is available; Android may defer background work to honor battery/Doze rules. Foreground checks are throttled to one per six hours. GitHub receives your public IP address, an `ArenaAI-Mobile-Client` user agent and the request timestamp. No Arena cookies, account details or device identifiers are sent; GitHub ETags avoid downloading an unchanged release response.
+- If a newer stable release exists, the app may fetch its `SHA256SUMS` asset, then download the APK in the background directly from GitHub (or its release-asset CDN) into the app's private cache. The file is verified against the published SHA-256, package name, version code and installed app's signing certificate before it is eligible for installation.
+- When Arena AI is next opened, the verified APK is handed to Android's package installer. Android requires explicit user confirmation (and may require enabling *Install unknown apps* for Arena AI); the app cannot silently install itself as a regular application.
+- The downloaded APK lives only in the app's private cache, is never readable by other apps, and is deleted after installation, when it goes stale (older than seven days), or when Android clears the cache. The app checks free space before downloading and never holds the APK in memory.
+- **Skip This Version** applies to the foreground update prompt. Background checks also honor the skipped version and will not download that release.
 - Files you download from Arena itself are written to the public Downloads collection through Android's `DownloadManager`/`MediaStore` and are not uploaded anywhere.
 
 ---
@@ -53,12 +54,13 @@ The application enforces strict client-side privacy safeguards inside the WebVie
 
 ## 4. Permissions Requested
 
-The application declares exactly two permissions:
+The app directly declares two permissions, and AndroidX WorkManager contributes the system permissions it needs to schedule the daily network-constrained task:
 
 - `android.permission.INTERNET` — required to load `https://arena.ai` and to check GitHub for updates.
-- `android.permission.REQUEST_INSTALL_PACKAGES` — used only to open Android's package installer for a verified self-update. Installing still requires an explicit **Update Now** tap and the OS-level *Install unknown apps* approval for Arena AI.
+- `android.permission.REQUEST_INSTALL_PACKAGES` — used only to open Android's package installer for a verified self-update. Installing still requires the OS-level *Install unknown apps* approval for Arena AI and explicit confirmation in Android's installer.
+- WorkManager's merged `android.permission.ACCESS_NETWORK_STATE`, `android.permission.RECEIVE_BOOT_COMPLETED` and `android.permission.WAKE_LOCK` — used only to wait for connectivity and reschedule/execute the daily check across reboot; no exact alarm or foreground service is used.
 
-AndroidX also contributes an app-private, signature-level `ai.arena.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` at build time; it is not a user-granted permission.
+These are normal permissions and do not prompt the user at runtime. AndroidX may also contribute an app-private, signature-level `ai.arena.mobile.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`; it is not user-granted.
 
 The app **does not request** or use:
 - Location (`ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION`)
@@ -66,7 +68,6 @@ The app **does not request** or use:
 - Audio recording (`RECORD_AUDIO`)
 - Storage reading/writing (`READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`)
 - Phone state (`READ_PHONE_STATE`)
-- Network state (`ACCESS_NETWORK_STATE`)
 
 ## 4.1 Third-Party Recipients
 

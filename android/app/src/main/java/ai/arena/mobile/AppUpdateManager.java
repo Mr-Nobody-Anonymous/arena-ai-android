@@ -40,16 +40,24 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * Behaviour:
  * <ul>
- *   <li>checks at most once every 24 hours (and only once per app process), so normal
- *       browsing never burns the unauthenticated GitHub API quota;</li>
+ *   <li><b>Daily background check:</b> {@link UpdateScheduler} schedules work on a 24-hour
+ *       cadence (even when the app is closed) and {@link #checkForUpdatesInBackground(Context)}
+ *       queries GitHub, then downloads and verifies a newer APK with no app UI at all.
+ *       Opening the app hands the verified APK to Android's package installer — the closest
+ *       Android allows to a self-update, since the OS always requires the user to confirm
+ *       an install.</li>
+ *   <li><b>Foreground check:</b> while the app is in use, {@link #checkForUpdates(Activity)}
+ *       runs on launch, resume and page load, throttled to once every 6 hours (5-minute
+ *       retry after a failure), so a release published during the day is offered promptly
+ *       without burning the unauthenticated GitHub API quota;</li>
  *   <li>ignores drafts and pre-releases, and remembers versions the user skipped;</li>
- *   <li>downloads with a percentage indicator and a cancel button;</li>
+ *   <li>foreground downloads show a percentage indicator and a cancel button;</li>
  *   <li>verifies SHA-256, package name, version code and signing certificate before
  *       handing the file to the package installer (see {@link UpdateVerifier}).</li>
  * </ul>
  *
- * The update UI is limited to the transient system AlertDialogs that already existed;
- * no permanent chrome is added to the Arena web interface.
+ * The update UI uses only the transient system AlertDialogs that already existed; no
+ * additional app UI or permanent chrome is added to the Arena web interface.
  */
 public class AppUpdateManager {
 
@@ -62,19 +70,31 @@ public class AppUpdateManager {
     private static final String KEY_SKIPPED_VERSION = "skipped_version";
     private static final String KEY_LAST_PROMPT_VERSION = "last_prompt_version";
     private static final String KEY_LAST_PROMPT_TIME = "last_prompt_time";
+    private static final String KEY_ETAG = "etag";
+    private static final String KEY_PENDING_APK_PATH = "pending_apk_path";
+    private static final String KEY_PENDING_APK_VERSION = "pending_apk_version";
+    private static final String KEY_LAST_INSTALL_PERMISSION_PROMPT = "last_install_permission_prompt";
 
     /**
-     * Normal spacing between successful checks. Short enough that a release published while
-     * the app is in use shows up the next time the user navigates or returns to the app,
-     * long enough that the unauthenticated GitHub API quota (60 requests/hour) is never at
-     * risk: at most four checks per hour.
+     * Normal spacing between successful foreground checks. Short enough that a release
+     * published while the app is in use shows up the next time the user navigates or
+     * returns to the app, long enough that the unauthenticated GitHub API quota
+     * (60 requests/hour) is never at risk. The scheduled daily check runs in the
+     * background via {@link UpdateScheduler#INTERVAL_MS} (24 hours), even when the app
+     * is closed (subject to Android's battery and connectivity scheduling).
      */
-    private static final long CHECK_INTERVAL_MS = 15L * 60L * 1000L;
+    private static final long CHECK_INTERVAL_MS = 6L * 60L * 60L * 1000L;
     /** After a failed check (offline, rate-limited, GitHub down) retry much sooner. */
     private static final long FAILURE_RETRY_MS = 5L * 60L * 1000L;
     /** The same release is offered at most once per this window, even across restarts. */
     private static final long PROMPT_COOLDOWN_MS = 12L * 60L * 60L * 1000L;
+    /** Avoid reopening Android's unknown-app settings on every return to the app. */
+    private static final long INSTALL_PERMISSION_PROMPT_COOLDOWN_MS = 24L * 60L * 60L * 1000L;
     private static final int MAX_RELEASE_NOTES_CHARS = 1200;
+    /** Hard cap for the small text responses (release JSON, SHA256SUMS). */
+    private static final int MAX_TEXT_RESPONSE_CHARS = 256 * 1024;
+    /** How long a verified APK may wait for the user to confirm the install. */
+    private static final long PENDING_APK_MAX_AGE_MS = 7L * 24L * 60L * 60L * 1000L;
 
     private static final ExecutorService updateExecutor = Executors.newSingleThreadExecutor();
     private static final Handler mainHandler = new Handler(Looper.getMainLooper());
@@ -125,9 +145,14 @@ public class AppUpdateManager {
                 // make every page load hammer the unauthenticated GitHub API.
                 prefs.edit().putLong(KEY_LAST_CHECK, now).apply();
 
-                String json = fetchText(GITHUB_LATEST_RELEASE_URL);
+                String json = fetchText(GITHUB_LATEST_RELEASE_URL, prefs);
                 if (json == null) {
                     prefs.edit().putBoolean(KEY_LAST_CHECK_OK, false).apply();
+                    return;
+                }
+                if (json.isEmpty()) {
+                    // 304 Not Modified: the release is unchanged since the last check.
+                    prefs.edit().putBoolean(KEY_LAST_CHECK_OK, true).apply();
                     return;
                 }
 
@@ -147,62 +172,18 @@ public class AppUpdateManager {
                     return;
                 }
 
-                String apkUrl = null;
-                String apkName = null;
-                String sumsUrl = null;
-                String assetDigest = null;
-                long apkSize = 0L;
-
-                JSONArray assets = release.optJSONArray("assets");
-                if (assets != null) {
-                    for (int i = 0; i < assets.length(); i++) {
-                        JSONObject asset = assets.optJSONObject(i);
-                        if (asset == null) {
-                            continue;
-                        }
-                        String name = asset.optString("name", "");
-                        String url = asset.optString("browser_download_url", "");
-                        if (url.isEmpty() || !url.toLowerCase(Locale.US).startsWith("https://")) {
-                            // Never install from a plaintext URL, whatever the release says.
-                            continue;
-                        }
-                        String lower = name.toLowerCase(Locale.US);
-                        if (lower.endsWith(".apk")) {
-                            boolean better = apkUrl == null
-                                    || (lower.contains("arena")
-                                    && apkName != null
-                                    && !apkName.toLowerCase(Locale.US).contains("arena"));
-                            if (better) {
-                                apkUrl = url;
-                                apkName = name;
-                                apkSize = asset.optLong("size", 0L);
-                                assetDigest = asset.optString("digest", null);
-                            }
-                        } else if (sumsUrl == null
-                                && (lower.equals("sha256sums") || lower.equals("sha256sums.txt"))) {
-                            sumsUrl = url;
-                        }
-                    }
-                }
-                if (apkUrl == null) {
+                String[] apk = findApkAsset(release);
+                if (apk == null) {
                     return;
                 }
-
-                // Prefer the published checksum file; fall back to GitHub's asset digest.
-                String expectedSha256 = null;
-                if (sumsUrl != null) {
-                    expectedSha256 = findShaForFile(fetchText(sumsUrl), apkName);
-                    if (expectedSha256 == null) {
-                        // One retry: a transient failure here must not block a real update.
-                        expectedSha256 = findShaForFile(fetchText(sumsUrl), apkName);
-                    }
+                String apkUrl = apk[0];
+                String apkName = apk[1];
+                long apkSize = 0L;
+                try {
+                    apkSize = Long.parseLong(apk[2]);
+                } catch (Exception ignored) {
                 }
-                if (expectedSha256 == null && assetDigest != null) {
-                    String digest = assetDigest.trim();
-                    if (digest.toLowerCase(Locale.US).startsWith("sha256:")) {
-                        expectedSha256 = digest.substring("sha256:".length()).trim();
-                    }
-                }
+                String expectedSha256 = resolveExpectedSha256(release, apkName, apk[3]);
 
                 final String finalApkUrl = apkUrl;
                 final long finalSize = apkSize;
@@ -239,6 +220,274 @@ public class AppUpdateManager {
                 checking.set(false);
             }
         });
+    }
+
+    /**
+     * Daily background check (fired by {@link UpdateWorker} via
+     * {@link UpdateScheduler}). Unlike the foreground check it never shows a dialog:
+     * when a newer release exists it downloads and verifies the APK silently, then persists
+     * it as the pending update. The next time the user opens the app,
+     * {@link #checkPendingInstall(Activity)} hands the verified APK to the system installer
+     * — the app updates itself with a single OS confirmation tap.
+     *
+     * <p>Skipped entirely when a verified APK is already pending, so the daily worker never
+     * re-downloads the same release.</p>
+     *
+     * <p><b>Memory:</b> the work runs synchronously on the caller's thread (WorkManager's
+     * worker thread), not on the shared foreground executor. Nothing is buffered in heap:
+     * the API response is a few kilobytes of JSON, release notes are not parsed in the
+     * background path, and the APK streams straight to disk through a single 16 KiB buffer
+     * that is released as soon as the check returns. There is no latch, no extra thread and
+     * no retained Activity or Context beyond the application context.</p>
+     *
+     * @return {@code true} when the check completed (with or without an update);
+     *         {@code false} on a transient failure, so WorkManager can back off and retry.
+     */
+    static boolean checkForUpdatesInBackground(Context context) {
+        if (context == null) {
+            return true;
+        }
+        final Context appContext = context.getApplicationContext();
+        if (hasPendingApk(appContext)) {
+            // Nothing to do: a verified APK is already waiting for the installer.
+            return true;
+        }
+        if (downloading.get() || !checking.compareAndSet(false, true)) {
+            // A foreground check/download owns the updater; let it finish that work.
+            return true;
+        }
+
+        try {
+            SharedPreferences prefs =
+                    appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            long now = System.currentTimeMillis();
+            prefs.edit().putLong(KEY_LAST_CHECK, now).apply();
+
+            String json = fetchText(GITHUB_LATEST_RELEASE_URL, prefs);
+            if (json == null) {
+                prefs.edit().putBoolean(KEY_LAST_CHECK_OK, false).apply();
+                return false;
+            }
+            if (json.isEmpty()) {
+                // 304 Not Modified: the release is unchanged since the last check.
+                prefs.edit().putBoolean(KEY_LAST_CHECK_OK, true).apply();
+                return true;
+            }
+            prefs.edit().putBoolean(KEY_LAST_CHECK_OK, true).apply();
+
+            JSONObject release = new JSONObject(json);
+            // Drop the response text before the download so only one buffer is live.
+            json = null;
+            if (release.optBoolean("draft", false) || release.optBoolean("prerelease", false)) {
+                return true;
+            }
+
+            final String tagName = release.optString("tag_name", "");
+            if (!isNewerVersion(installedVersionName(appContext), tagName)) {
+                return true;
+            }
+            String skipped = prefs.getString(KEY_SKIPPED_VERSION, "");
+            if (skipped != null && skipped.equalsIgnoreCase(tagName)) {
+                return true;
+            }
+
+            String[] apk = findApkAsset(release);
+            if (apk == null) {
+                return true;
+            }
+            String expectedSha256 = resolveExpectedSha256(release, apk[1], apk[3]);
+
+            // A failed download is retried by the next scheduled (or foreground) check,
+            // not by an immediate WorkManager retry that would re-download right away.
+            long expectedSize = 0L;
+            try {
+                expectedSize = Long.parseLong(apk[2]);
+            } catch (Exception ignored) {
+            }
+            downloadSilently(appContext, tagName, apk[0], expectedSha256, expectedSize);
+            return true;
+        } catch (Exception ignored) {
+            appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                    .edit().putBoolean(KEY_LAST_CHECK_OK, false).apply();
+            // A background check must never crash the app or wake the user.
+            return false;
+        } finally {
+            checking.set(false);
+        }
+    }
+
+    /**
+     * Downloads and verifies an update with no UI. On success the APK is persisted as the
+     * pending update for installation when the user next opens the app; on any failure the
+     * partial file is deleted and nothing is shown.
+     *
+     * <p>Memory stays flat regardless of APK size: the body is streamed to the cache
+     * directory through a 16 KiB buffer and hashed in the same pass, so the APK is never
+     * held in a {@code byte[]}. If the free-space check fails the download is skipped
+     * entirely instead of filling the user's storage.</p>
+     */
+    private static void downloadSilently(Context context, String tagName, String downloadUrl,
+                                         String expectedSha256, long expectedSize) {
+        if (!downloading.compareAndSet(false, true)) {
+            return;
+        }
+        File tempFile = null;
+        File finalFile = null;
+        try {
+            File updatesDir = new File(context.getCacheDir(), "updates");
+            if (!updatesDir.exists() && !updatesDir.mkdirs()) {
+                return;
+            }
+            pruneStaleDownloads(context, updatesDir);
+            finalFile = new File(updatesDir, "ArenaAI-" + sanitizeTag(tagName) + ".apk");
+            tempFile = new File(updatesDir, finalFile.getName() + ".part");
+            if (tempFile.exists() && !tempFile.delete()) {
+                return;
+            }
+            if (expectedSize > 0) {
+                long available = new StatFs(updatesDir.getAbsolutePath()).getAvailableBytes();
+                if (available < expectedSize) {
+                    // Not enough room for the APK: leave the installed version untouched
+                    // and let a later check try again.
+                    return;
+                }
+            }
+
+            HttpURLConnection connection = openConnectionWithRedirects(downloadUrl);
+            activeConnection = connection;
+            long total = 0L;
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream in = connection.getInputStream();
+                 OutputStream out = new FileOutputStream(tempFile)) {
+                byte[] buffer = new byte[16 * 1024];
+                int read;
+                while ((read = in.read(buffer)) != -1) {
+                    out.write(buffer, 0, read);
+                    digest.update(buffer, 0, read);
+                    total += read;
+                }
+                out.flush();
+            } finally {
+                try {
+                    connection.disconnect();
+                } catch (Exception ignored) {
+                }
+                activeConnection = null;
+            }
+
+            if (total <= 0) {
+                deleteQuietly(tempFile);
+                return;
+            }
+            String streamedSha = toHex(digest.digest());
+            if (!tempFile.renameTo(finalFile)) {
+                // crossFileSystem is not expected here (same directory), but a copy is
+                // still safe because it is streamed, never buffered.
+                copyFile(tempFile, finalFile);
+                tempFile.delete();
+            }
+            tempFile = null;
+            // The hash of the bytes that actually landed on disk is already known from the
+            // streaming pass, so verify() is told to skip re-reading the whole APK.
+            UpdateVerifier.Result verification =
+                    UpdateVerifier.verify(context, finalFile, expectedSha256, streamedSha);
+            if (!verification.ok()) {
+                deleteQuietly(finalFile);
+                finalFile = null;
+                return;
+            }
+
+            SharedPreferences prefs =
+                    context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            prefs.edit()
+                    .putString(KEY_PENDING_APK_PATH, finalFile.getAbsolutePath())
+                    .putString(KEY_PENDING_APK_VERSION, tagName)
+                    .apply();
+            pendingApkInstall = finalFile;
+        } catch (Exception ignored) {
+            // Silent failure: the foreground check will retry on the next app launch.
+            deleteQuietly(tempFile);
+            deleteQuietly(finalFile);
+        } finally {
+            downloading.set(false);
+            disconnectActiveConnection();
+        }
+    }
+
+    /**
+     * Keeps the update cache to at most one APK: removes leftovers from interrupted
+     * downloads and APKs for other versions. The pending APK is preserved unless it has
+     * been waiting for more than a week (for example, the user never granted the install
+     * permission), so the cache directory cannot grow without bound.
+     */
+    private static void pruneStaleDownloads(Context context, File updatesDir) {
+        File[] files = updatesDir.listFiles();
+        if (files == null) {
+            return;
+        }
+        SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        File pending = null;
+        String pendingPath = prefs.getString(KEY_PENDING_APK_PATH, null);
+        if (pendingPath != null) {
+            pending = new File(pendingPath);
+        }
+        long now = System.currentTimeMillis();
+        for (File file : files) {
+            String name = file.getName();
+            if (!name.endsWith(".apk") && !name.endsWith(".part")) {
+                continue;
+            }
+            if (name.endsWith(".part")) {
+                // An interrupted download is never installable.
+                deleteQuietly(file);
+                continue;
+            }
+            boolean isPending = pending != null
+                    && file.getAbsolutePath().equals(pending.getAbsolutePath());
+            if (isPending) {
+                if (now - file.lastModified() < PENDING_APK_MAX_AGE_MS) {
+                    continue;
+                }
+                prefs.edit()
+                        .remove(KEY_PENDING_APK_PATH)
+                        .remove(KEY_PENDING_APK_VERSION)
+                        .apply();
+                pendingApkInstall = null;
+            }
+            deleteQuietly(file);
+        }
+    }
+
+    /**
+     * Whether a verified APK is already waiting to be installed. Reads the persisted path
+     * so a background download survives process death and app restarts.
+     */
+    static boolean hasPendingApk(Context context) {
+        if (context == null) {
+            return false;
+        }
+        SharedPreferences prefs =
+                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        String path = prefs.getString(KEY_PENDING_APK_PATH, null);
+        if (path == null || path.isEmpty()) {
+            return false;
+        }
+        File file = new File(path);
+        if (!file.exists() || file.length() == 0) {
+            prefs.edit().remove(KEY_PENDING_APK_PATH).remove(KEY_PENDING_APK_VERSION).apply();
+            return false;
+        }
+        String pendingVersion = prefs.getString(KEY_PENDING_APK_VERSION, null);
+        if (pendingVersion != null
+                && !isNewerVersion(installedVersionName(context), pendingVersion)) {
+            // Android completed a previous install (or the pending APK is stale); remove
+            // it instead of launching the installer again after the app restarts.
+            deleteQuietly(file);
+            prefs.edit().remove(KEY_PENDING_APK_PATH).remove(KEY_PENDING_APK_VERSION).apply();
+            return false;
+        }
+        pendingApkInstall = file;
+        return true;
     }
 
     private static void showUpdatePrompt(Activity activity, String tagName, String downloadUrl,
@@ -373,14 +622,10 @@ public class AppUpdateManager {
                                 copyFile(tempFile, finalFile);
                                 tempFile.delete();
                             }
-                            verification = UpdateVerifier.verify(activity, finalFile, expectedSha256);
-                            if (verification.ok() && expectedSha256 != null
-                                    && !expectedSha256.equalsIgnoreCase(streamedSha)) {
-                                // Belt and braces: the re-read hash is authoritative, but
-                                // flag a stream that did not match what was written.
-                                verification = new UpdateVerifier.Result(
-                                        UpdateVerifier.Reason.HASH_MISMATCH, "stream mismatch");
-                            }
+                            // The APK was hashed while it was written, so verification
+                            // never re-reads tens of megabytes from flash.
+                            verification = UpdateVerifier.verify(
+                                    activity, finalFile, expectedSha256, streamedSha);
                         }
                     }
                 }
@@ -512,30 +757,55 @@ public class AppUpdateManager {
     }
 
     /**
-     * Resumes a deferred install after the user returns from the "install unknown apps"
-     * settings screen.
+     * Installs a verified APK that was downloaded in the background (or whose install was
+     * deferred until the user grants "install unknown apps"). Called from
+     * {@code MainActivity.onResume}: this is what makes the app update itself — the user
+     * only confirms once in the system installer. The pending path is read from
+     * preferences so a background download survives process death.
      */
     public static void checkPendingInstall(Activity activity) {
-        if (activity == null || pendingApkInstall == null) {
-            return;
-        }
-        boolean canInstall = Build.VERSION.SDK_INT < Build.VERSION_CODES.O
-                || activity.getPackageManager().canRequestPackageInstalls();
-        if (!canInstall) {
+        if (activity == null || activity.isFinishing() || !hasPendingApk(activity)) {
             return;
         }
         File apk = pendingApkInstall;
-        pendingApkInstall = null;
-        if (apk.exists()) {
-            installApk(activity, apk);
+        if (apk == null || !apk.exists()) {
+            return;
         }
+        SharedPreferences prefs = activity.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        boolean canInstall = Build.VERSION.SDK_INT < Build.VERSION_CODES.O
+                || activity.getPackageManager().canRequestPackageInstalls();
+        if (!canInstall) {
+            // Reuse the existing system-settings path at most once per day. Do not relaunch
+            // Settings on every onResume if the user declines; keep the verified APK pending.
+            long now = System.currentTimeMillis();
+            long promptedAt = prefs.getLong(KEY_LAST_INSTALL_PERMISSION_PROMPT, 0L);
+            if (now - promptedAt >= INSTALL_PERMISSION_PROMPT_COOLDOWN_MS) {
+                prefs.edit().putLong(KEY_LAST_INSTALL_PERMISSION_PROMPT, now).apply();
+                installApk(activity, apk);
+            }
+            return;
+        }
+        pendingApkInstall = null;
+        prefs.edit()
+                .remove(KEY_PENDING_APK_PATH)
+                .remove(KEY_PENDING_APK_VERSION)
+                .remove(KEY_LAST_INSTALL_PERMISSION_PROMPT)
+                .apply();
+        installApk(activity, apk);
     }
 
     // ---------------------------------------------------------------------------------
     // Networking
     // ---------------------------------------------------------------------------------
 
-    private static String fetchText(String url) {
+    /**
+     * Fetches a small text resource (GitHub API JSON, SHA256SUMS). For the GitHub API the
+     * stored ETag is sent as {@code If-None-Match}: an unchanged release answers 304 with
+     * no body, which keeps the daily check inside GitHub's unauthenticated quota and
+     * makes "no new release" checks nearly free. Returns {@code null} on failure, an empty
+     * string for a 304 (unchanged release), or the response body for a successful fetch.
+     */
+    private static String fetchText(String url, SharedPreferences prefs) {
         HttpURLConnection connection = null;
         try {
             connection = (HttpURLConnection) new URL(url).openConnection();
@@ -545,16 +815,38 @@ public class AppUpdateManager {
             connection.setRequestProperty("Accept", "application/vnd.github+json");
             connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
             connection.setRequestProperty("User-Agent", "ArenaAI-Mobile-Client");
+            if (prefs != null && url.equals(GITHUB_LATEST_RELEASE_URL)) {
+                String etag = prefs.getString(KEY_ETAG, null);
+                if (etag != null && !etag.isEmpty()) {
+                    connection.setRequestProperty("If-None-Match", etag);
+                }
+            }
 
             int code = connection.getResponseCode();
+            if (code == HttpURLConnection.HTTP_NOT_MODIFIED) {
+                // Unchanged since the last check: not a failure, just nothing new.
+                return "";
+            }
             if (code != HttpURLConnection.HTTP_OK) {
                 return null;
             }
-            StringBuilder builder = new StringBuilder();
+            if (prefs != null && url.equals(GITHUB_LATEST_RELEASE_URL)) {
+                String etag = connection.getHeaderField("ETag");
+                if (etag != null && !etag.isEmpty()) {
+                    prefs.edit().putString(KEY_ETAG, etag).apply();
+                }
+            }
+            // Cap the response body: the release JSON and SHA256SUMS are kilobytes. An
+            // unbounded read would let a misbehaving endpoint grow the heap of a
+            // background job, so stop at 256 KiB.
+            StringBuilder builder = new StringBuilder(4096);
             try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(connection.getInputStream()))) {
+                    new InputStreamReader(connection.getInputStream()), 8192)) {
                 String line;
                 while ((line = reader.readLine()) != null) {
+                    if (builder.length() + line.length() > MAX_TEXT_RESPONSE_CHARS) {
+                        break;
+                    }
                     builder.append(line).append('\n');
                 }
             }
@@ -573,14 +865,19 @@ public class AppUpdateManager {
 
     /**
      * Opens a connection and manually follows HTTP 301/302/307/308 redirects
-     * (GitHub release assets redirect to a signed S3 URL).
+     * (GitHub release assets redirect to a signed S3 URL). Automatic following is
+     * disabled so the manual loop below actually runs and 308 responses are handled too.
      */
     private static HttpURLConnection openConnectionWithRedirects(String initialUrl) throws Exception {
         String currentUrl = initialUrl;
         for (int i = 0; i < 8; i++) {
+            if (currentUrl == null
+                    || !currentUrl.toLowerCase(Locale.US).startsWith("https://")) {
+                throw new IOException("Refusing non-HTTPS update redirect");
+            }
             URL url = new URL(currentUrl);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setInstanceFollowRedirects(true);
+            connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(15000);
             connection.setReadTimeout(30000);
             connection.setRequestProperty("User-Agent", "ArenaAI-Mobile-Client");
@@ -617,6 +914,99 @@ public class AppUpdateManager {
     // ---------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------
+
+    /**
+     * Picks the APK asset from a GitHub release. Returns
+     * {@code [downloadUrl, fileName, size, assetDigest]} or {@code null} when the release
+     * ships no HTTPS APK. Prefers an asset whose name mentions "arena" when several APKs
+     * are present, and never accepts a plaintext URL.
+     */
+    static String[] findApkAsset(JSONObject release) {
+        if (release == null) {
+            return null;
+        }
+        String apkUrl = null;
+        String apkName = null;
+        String assetDigest = null;
+        long apkSize = 0L;
+
+        JSONArray assets = release.optJSONArray("assets");
+        if (assets != null) {
+            for (int i = 0; i < assets.length(); i++) {
+                JSONObject asset = assets.optJSONObject(i);
+                if (asset == null) {
+                    continue;
+                }
+                String name = asset.optString("name", "");
+                String url = asset.optString("browser_download_url", "");
+                if (url.isEmpty() || !url.toLowerCase(Locale.US).startsWith("https://")) {
+                    // Never install from a plaintext URL, whatever the release says.
+                    continue;
+                }
+                String lower = name.toLowerCase(Locale.US);
+                if (!lower.endsWith(".apk")) {
+                    continue;
+                }
+                boolean better = apkUrl == null
+                        || (lower.contains("arena")
+                        && apkName != null
+                        && !apkName.toLowerCase(Locale.US).contains("arena"));
+                if (better) {
+                    apkUrl = url;
+                    apkName = name;
+                    apkSize = asset.optLong("size", 0L);
+                    assetDigest = asset.optString("digest", null);
+                }
+            }
+        }
+        if (apkUrl == null) {
+            return null;
+        }
+        return new String[]{apkUrl, apkName, String.valueOf(apkSize),
+                assetDigest == null ? "" : assetDigest};
+    }
+
+    /**
+     * Resolves the expected SHA-256 for an APK asset: the published {@code SHA256SUMS}
+     * file first (with one retry on a transient failure), then GitHub's asset digest.
+     * Returns {@code null} when no checksum is available, in which case the update is
+     * refused by {@link UpdateVerifier}.
+     */
+    static String resolveExpectedSha256(JSONObject release, String apkName, String assetDigest) {
+        String sumsUrl = null;
+        JSONArray assets = release == null ? null : release.optJSONArray("assets");
+        if (assets != null) {
+            for (int i = 0; i < assets.length(); i++) {
+                JSONObject asset = assets.optJSONObject(i);
+                if (asset == null) {
+                    continue;
+                }
+                String name = asset.optString("name", "").toLowerCase(Locale.US);
+                String url = asset.optString("browser_download_url", "");
+                if (!url.isEmpty() && url.toLowerCase(Locale.US).startsWith("https://")
+                        && (name.equals("sha256sums") || name.equals("sha256sums.txt"))) {
+                    sumsUrl = url;
+                    break;
+                }
+            }
+        }
+
+        String expectedSha256 = null;
+        if (sumsUrl != null) {
+            expectedSha256 = findShaForFile(fetchText(sumsUrl, null), apkName);
+            if (expectedSha256 == null) {
+                // One retry: a transient failure here must not block a real update.
+                expectedSha256 = findShaForFile(fetchText(sumsUrl, null), apkName);
+            }
+        }
+        if (expectedSha256 == null && assetDigest != null && !assetDigest.isEmpty()) {
+            String digest = assetDigest.trim();
+            if (digest.toLowerCase(Locale.US).startsWith("sha256:")) {
+                expectedSha256 = digest.substring("sha256:".length()).trim();
+            }
+        }
+        return expectedSha256;
+    }
 
     static String findShaForFile(String sumsText, String fileName) {
         if (sumsText == null || fileName == null) {
@@ -693,6 +1083,16 @@ public class AppUpdateManager {
         }
     }
 
+    private static void runSafely(Runnable callback) {
+        if (callback == null) {
+            return;
+        }
+        try {
+            callback.run();
+        } catch (Exception ignored) {
+        }
+    }
+
     private static String toHex(byte[] bytes) {
         StringBuilder builder = new StringBuilder(bytes.length * 2);
         for (byte value : bytes) {
@@ -710,7 +1110,9 @@ public class AppUpdateManager {
             }
         } catch (Exception ignored) {
         }
-        return "1.0.3";
+        // Fall back to the build-time version so a PackageManager hiccup can never make
+        // the updater compare against a stale hardcoded version.
+        return BuildConfig.VERSION_NAME;
     }
 
     /**

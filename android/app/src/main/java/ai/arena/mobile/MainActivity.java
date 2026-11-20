@@ -166,35 +166,44 @@ public class MainActivity extends AppCompatActivity {
      * at 0, so a native-only check cannot tell "at the top" from "scrolled deep in history".
      * Scroll events (including nested ones, captured on window) update the state and only
      * transitions are posted over the origin-locked bridge.
+     *
+     * <p>Performance: the shim never scans the whole DOM (an earlier version ran
+     * {@code querySelectorAll('*')} during initial viewport detection), never
+     * forces layout except for the handful of elements that actually scrolled, and reports
+     * at most once per 120 ms. Listeners are passive so scrolling is never blocked.</p>
      */
     private static final String VIEWPORT_SHIM_JS =
             "(function(){try{"
                     + "if(window.__arenaViewportShim){return;}window.__arenaViewportShim=true;"
                     + "var bridge=window.arenaAndroid;"
                     + "if(!bridge||typeof bridge.postMessage!=='function'){return;}"
-                    + "var last=null,scrolled=[],pending=false,primed=false;"
+                    + "var last=null,scrolled=[],pending=false,lastReport=0,ready=false;"
                     + "function root(){var d=document.scrollingElement||document.documentElement;"
                     + "return (window.pageYOffset||(d&&d.scrollTop)||0)<=0;}"
                     + "function track(el){if(!el||el.nodeType!==1){return;}var i=scrolled.indexOf(el);"
                     + "if(el.scrollTop>1){if(i<0){scrolled.push(el);}}else if(i>=0){scrolled.splice(i,1);}}"
-                    + "function prime(){if(primed){return;}primed=true;"
-                    + "try{var all=document.querySelectorAll('*');"
-                    + "for(var i=0;i<all.length;i++){if(all[i].scrollTop>1){scrolled.push(all[i]);}}}catch(e){}}"
                     + "function compute(){if(!root()){return false;}"
                     + "for(var i=scrolled.length-1;i>=0;i--){var el=scrolled[i];"
                     + "if(!el.isConnected||el.scrollTop<=1){scrolled.splice(i,1);continue;}"
                     + "var r=el.getBoundingClientRect();"
                     + "if(r.bottom>0&&r.top<window.innerHeight&&r.right>0&&r.left<window.innerWidth){return false;}}"
                     + "return true;}"
-                    + "function report(){pending=false;prime();var atTop=compute();if(atTop===last){return;}"
+                    + "function report(){pending=false;var now=Date.now();"
+                    + "if(now-lastReport<120){schedule();return;}lastReport=now;"
+                    + "var atTop=ready&&compute();if(atTop===last){return;}"
                     + "last=atTop;"
                     + "try{bridge.postMessage(JSON.stringify({type:'viewport',atTop:atTop}));}catch(e){}}"
                     + "function schedule(){if(pending){return;}pending=true;"
+                    + "var wait=120-(Date.now()-lastReport);"
+                    + "if(wait>0){setTimeout(report,wait);return;}"
                     + "(window.requestAnimationFrame||function(cb){setTimeout(cb,16);})(report);}"
-                    + "window.addEventListener('scroll',function(e){"
+                    + "window.addEventListener('scroll',function(e){ready=true;"
                     + "track(e.target===document?(document.scrollingElement||document.documentElement):e.target);"
-                    + "schedule();},true);"
-                    + "window.addEventListener('resize',schedule);"
+                    + "schedule();},{capture:true,passive:true});"
+                    + "window.addEventListener('touchstart',function(e){var el=e.target;"
+                    + "while(el&&el!==document){track(el);el=el.parentElement;}ready=true;schedule();},"
+                    + "{passive:true});"
+                    + "window.addEventListener('resize',schedule,{passive:true});"
                     + "window.addEventListener('load',schedule);"
                     + "setTimeout(schedule,0);setTimeout(schedule,400);setTimeout(schedule,1500);"
                     + "}catch(e){}})();";
@@ -344,6 +353,10 @@ public class MainActivity extends AppCompatActivity {
 
         configureWebView(webView);
 
+        // Ensure the unique daily background update check is scheduled. WorkManager
+        // persists this work across process death, reboot and app updates.
+        UpdateScheduler.scheduleDailyCheck(this);
+
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
             if (webView.getUrl() == null) {
@@ -358,6 +371,11 @@ public class MainActivity extends AppCompatActivity {
         WebView view = new WebView(this);
         view.setBackgroundColor(Color.BLACK);
         view.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        // Keep the renderer at normal priority while the app is visible, but let Android
+        // reclaim it when Arena is in the background: a hidden WebView renderer holds tens
+        // of megabytes and is one of the first things a low-RAM phone kills anyway. The
+        // page is restored by WebView's own state, so this costs nothing while visible.
+        view.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_BOUND, true);
         return view;
     }
 
@@ -387,6 +405,9 @@ public class MainActivity extends AppCompatActivity {
         settings.setBuiltInZoomControls(false);
         settings.setDisplayZoomControls(false);
         settings.setTextZoom(systemFontZoom());
+        // Explicit default cache mode: the WebView disk/memory cache is what makes
+        // revisits fast; never force a reload from the network.
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
 
         // Popups are required for OAuth/SSO flows.
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
@@ -475,7 +496,6 @@ public class MainActivity extends AppCompatActivity {
                 if (url != null && url.startsWith(OFFLINE_BASE_URL)) {
                     // The reconnect screen finished loading: keep the retry loop alive.
                     pageAtTop = true;
-                    CookieManager.getInstance().flush();
                     return;
                 }
                 if (url != null && url.startsWith("https://")) {
@@ -484,13 +504,17 @@ public class MainActivity extends AppCompatActivity {
                     // Throttled internally; also runs from onResume.
                     AppUpdateManager.checkForUpdates(MainActivity.this);
                 }
-                CookieManager.getInstance().flush();
+                // No CookieManager.flush() here: flushing writes cookies to disk and doing
+                // it on every page load is pure jank. Cookies are flushed once when the
+                // app is backgrounded (onPause), which is when the OS may kill the process.
             }
 
             @Override
             public void onReceivedError(WebView wv, WebResourceRequest request, WebResourceError error) {
                 super.onReceivedError(wv, request, error);
-                if (request != null && request.isForMainFrame()) {
+                if (request != null && request.isForMainFrame() && error != null
+                        && isMainFrameNetworkError(error.getErrorCode(),
+                                request.getUrl() == null ? null : request.getUrl().toString())) {
                     swipeRefreshLayout.setRefreshing(false);
                     pageLoading = false;
                     pageAtTop = false;
@@ -502,6 +526,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onReceivedError(WebView wv, int errorCode, String description, String failingUrl) {
                 super.onReceivedError(wv, errorCode, description, failingUrl);
+                // This legacy callback also fires for subresources (images, scripts). Only
+                // a main-frame connectivity failure may replace the page with the
+                // reconnect screen; anything else must leave the chat untouched.
+                if (!isMainFrameNetworkError(errorCode, failingUrl)) {
+                    return;
+                }
                 swipeRefreshLayout.setRefreshing(false);
                 pageLoading = false;
                 pageAtTop = false;
@@ -860,11 +890,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
 
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                CookieManager.getInstance().flush();
-            }
 
             @Override
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
@@ -1214,6 +1239,26 @@ public class MainActivity extends AppCompatActivity {
                 && view.getScrollY() <= 0;
     }
 
+    /**
+     * Android's deprecated WebView error callback does not identify whether the failed
+     * request was the main frame or a subresource. Only act when its URL matches the
+     * currently displayed document and the error is a connectivity failure.
+     */
+    private boolean isMainFrameNetworkError(int errorCode, String failingUrl) {
+        if (webView == null || failingUrl == null) {
+            return false;
+        }
+        String currentUrl = webView.getUrl();
+        if (currentUrl == null || !currentUrl.equals(failingUrl)) {
+            return false;
+        }
+        return errorCode == WebViewClient.ERROR_UNKNOWN
+                || errorCode == WebViewClient.ERROR_HOST_LOOKUP
+                || errorCode == WebViewClient.ERROR_CONNECT
+                || errorCode == WebViewClient.ERROR_TIMEOUT
+                || errorCode == WebViewClient.ERROR_IO;
+    }
+
     private void handleNetworkError() {
         if (destroyed) {
             return;
@@ -1332,17 +1377,10 @@ public class MainActivity extends AppCompatActivity {
         if (webView != null) {
             webView.onResume();
         }
-        CookieManager.getInstance().flush();
         AppUpdateManager.checkPendingInstall(this);
         // Throttled inside; this makes a release that appeared while the app was in the
         // background show up as soon as the user comes back instead of after a navigation.
         AppUpdateManager.checkForUpdates(this);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        CookieManager.getInstance().flush();
     }
 
     @Override
